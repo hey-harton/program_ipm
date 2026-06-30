@@ -1,0 +1,8 @@
+flask
+mysql-connector-python
+numpy>=2.4.4
+pandas>=3.0.2
+scikit-learn
+tensorflow>=2.21.0
+werkzeug
+gunicorn
