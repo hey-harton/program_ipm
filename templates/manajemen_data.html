@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manajemen Data — IPM Predictor Jatim</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['IBM Plex Sans','sans-serif'],mono:['IBM Plex Mono','monospace']}}}}</script>
+
+  <style>
+    *{box-sizing:border-box;}
+    body{font-family:'IBM Plex Sans',sans-serif;background-color:#f1f5f9;
+      background-image:linear-gradient(rgba(148,163,184,0.13) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(148,163,184,0.13) 1px,transparent 1px);
+      background-size:40px 40px;min-height:100vh;display:flex;flex-direction:column;}
+
+    #site-header{background-color:#1e293b;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,0.25);}
+    .profile-avatar{width:28px;height:28px;border-radius:50%;background:#2563eb;border:1.5px solid rgba(96,165,250,0.5);
+      display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+    .profile-name{font-size:12px;font-weight:600;color:#e2e8f0;line-height:1.3;}
+    .profile-role{font-size:10px;color:#64748b;font-family:'IBM Plex Mono',monospace;}
+    .btn-logout{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#cbd5e1;
+      background:transparent;border:1px solid #475569;border-radius:6px;padding:6px 12px;transition:all .2s;text-decoration:none;}
+    .btn-logout:hover{background:#334155;color:#f1f5f9;border-color:#64748b;}
+
+    #breadcrumb-bar{background:#fff;border-top:3px solid #f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 2px 6px rgba(0,0,0,0.04);}
+    .bc-item{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:#64748b;
+      padding:10px 8px 10px 0;text-decoration:none;transition:color .15s;}
+    .bc-item:hover{color:#3b82f6;}
+    .bc-sep{color:#cbd5e1;font-size:14px;user-select:none;padding:0 2px;}
+    .bc-current{font-size:12.5px;font-weight:600;color:#0f172a;display:inline-flex;align-items:center;gap:5px;padding:10px 0;}
+
+    .section-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;}
+    .section-header{padding:14px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;}
+    .section-title{font-size:13px;font-weight:700;color:#0f172a;}
+
+    #site-footer{background:#1e293b;color:#64748b;font-size:11px;font-family:'IBM Plex Mono',monospace;
+      padding:14px 24px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;text-align:center;margin-top:auto;}
+    #site-footer .sep{color:#334155;}
+
+    .tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+    .tbl th{text-align:left;padding:9px 14px;font-size:11px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.06em;color:#64748b;background:#f8fafc;border-bottom:2px solid #e2e8f0;white-space:nowrap;}
+    .tbl td{padding:9px 14px;border-bottom:1px solid #f1f5f9;color:#334155;vertical-align:middle;}
+    .tbl tbody tr:hover{background:#f8fafc;}
+    .tbl tbody tr:last-child td{border-bottom:none;}
+
+    .btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:8px;
+      font-size:12px;font-weight:600;cursor:pointer;border:none;text-decoration:none;transition:all .15s;}
+    .btn:hover{opacity:.85;}
+    .btn-primary{background:#1e3a5f;color:#fff;}
+    .btn-light{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}
+    .btn-light:hover{background:#e2e8f0;}
+    .btn-danger{background:#dc2626;color:#fff;}
+    .btn-success{background:#16a34a;color:#fff;}
+    .btn-warning{background:#d97706;color:#fff;}
+    .btn-sm{padding:4px 9px;font-size:11px;border-radius:6px;}
+    .btn-ghost{background:none;border:none;cursor:pointer;display:inline-flex;align-items:center;
+      justify-content:center;width:28px;height:28px;border-radius:6px;transition:all .15s;}
+    .btn-ghost:hover{background:#f1f5f9;}
+
+    .filter-row{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap;}
+    .filter-row select,.filter-row input{border:1px solid #e2e8f0;border-radius:6px;padding:5px 9px;
+      font-size:12px;color:#334155;background:#fff;font-family:'IBM Plex Sans',sans-serif;}
+    .filter-row select:focus,.filter-row input:focus{outline:none;border-color:#94a3b8;}
+
+    .pag-row{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 16px;
+      border-top:1px solid #f1f5f9;font-size:12px;color:#64748b;flex-wrap:wrap;}
+    .pag-btn{padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;
+      cursor:pointer;font-size:12px;color:#475569;text-decoration:none;transition:all .15s;}
+    .pag-btn:hover{background:#f1f5f9;}
+    .pag-btn.active{background:#1e3a5f;color:#fff;border-color:#1e3a5f;}
+    .pag-btn.disabled{opacity:.4;pointer-events:none;}
+
+    .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;
+      align-items:center;justify-content:center;}
+    .modal-backdrop.open{display:flex;}
+    .modal-box{background:#fff;border-radius:14px;width:100%;max-width:520px;
+      box-shadow:0 24px 64px rgba(0,0,0,.2);overflow:hidden;margin:16px;}
+    .modal-box.wide{max-width:900px;}
+    .modal-header{padding:18px 22px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;}
+    .modal-title{font-size:15px;font-weight:700;color:#0f172a;}
+    .modal-body{padding:22px;max-height:70vh;overflow-y:auto;}
+    .modal-footer{padding:14px 22px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:10px;}
+    .modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;line-height:1;transition:color .15s;}
+    .modal-close:hover{color:#0f172a;}
+
+    .form-group{margin-bottom:14px;}
+    .form-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:5px;}
+    .form-input{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;
+      color:#334155;background:#f8fafc;transition:border-color .15s;font-family:'IBM Plex Sans',sans-serif;}
+    .form-input:focus{outline:none;border-color:#94a3b8;background:#fff;}
+
+    /* Tambah tahun table */
+    .tahun-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+    .tahun-tbl th{padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;
+      background:#f8fafc;border-bottom:1.5px solid #e2e8f0;text-align:center;}
+    .tahun-tbl th:first-child{text-align:left;}
+    .tahun-tbl td{padding:5px 8px;border-bottom:1px solid #f1f5f9;text-align:center;}
+    .tahun-tbl td:first-child{text-align:left;font-weight:600;color:#334155;}
+    .tahun-tbl input[type=number]{width:70px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;
+      font-size:11px;text-align:center;font-family:'IBM Plex Mono',monospace;background:#f8fafc;}
+    .tahun-tbl input[type=number]:focus{outline:none;border-color:#3b82f6;background:#fff;}
+    .tahun-tbl tbody tr:hover{background:#f8fafc;}
+
+    /* Soft-delete row styling */
+    .row-deleted{opacity:.5;background:#fff5f5;}
+    .badge-deleted{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:99px;
+      font-size:9px;font-weight:700;background:#fee2e2;color:#dc2626;text-transform:uppercase;}
+    .badge-active{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:99px;
+      font-size:9px;font-weight:700;background:#dcfce7;color:#16a34a;text-transform:uppercase;}
+
+    /* Tab */
+    .tab-btn{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;
+      background:transparent;color:#64748b;transition:all .15s;}
+    .tab-btn.active{background:#1e3a5f;color:#fff;}
+    .tab-btn:hover:not(.active){background:#f1f5f9;}
+
+    #loading-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);
+      z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+    #loading-overlay.show{display:flex;}
+    .loading-card{background:#fff;border-radius:16px;padding:32px 40px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.2);}
+    .big-spinner{width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#1e3a5f;
+      border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+    .fade-up{animation:fadeUp .35s ease forwards;}
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="loading-card">
+    <div class="big-spinner"></div>
+    <p class="font-bold text-slate-800">Menyimpan data...</p>
+    <p class="text-xs text-slate-500 mt-1">Mengalihkan ke halaman Retraining</p>
+  </div>
+</div>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════ -->
+<header id="site-header">
+  <div class="px-5 md:px-8 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="{{ url_for('static', filename='Tajuk.png') }}" alt="Logo"
+           class="h-10 w-auto object-contain" onerror="this.style.display='none'">
+      <span class="font-semibold text-sm tracking-wide text-slate-100">IPM Predictor Jawa Timur</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="profile-avatar">{{ nama_admin[0]|upper }}</div>
+        <div class="hidden sm:block">
+          <p class="profile-name">{{ nama_admin }}</p>
+          <p class="profile-role">Administrator</p>
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="btn-logout">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>Logout
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ══ BREADCRUMB ══════════════════════════════════════════════════════ -->
+<div id="breadcrumb-bar">
+  <div class="px-5 md:px-8 flex items-center gap-1 flex-wrap">
+    <a href="{{ url_for('dashboard') }}" class="bc-item">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>Dashboard
+    </a>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+      </svg>Manajemen Data
+    </span>
+  </div>
+</div>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════════════════ -->
+<main class="flex-1 px-4 md:px-8 py-6 max-w-screen-xl mx-auto w-full">
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-5 items-start">
+
+    <!-- ▌ PANEL KIRI — Manajemen Wilayah ▌ -->
+    <div class="section-card fade-up">
+      <!-- Tabs -->
+      <div class="section-header">
+        <p class="section-title">🏙 Manajemen Wilayah</p>
+        <button onclick="openModal('modal-tambah-wilayah')" class="btn btn-primary btn-sm">
+          + Tambah
+        </button>
+      </div>
+
+      <!-- Sub-tabs: Aktif / Nonaktif -->
+      <div class="px-3 pt-3 flex gap-1.5">
+        <button class="tab-btn active text-xs" id="tab-aktif" onclick="switchTab('aktif')">Aktif</button>
+        <button class="tab-btn text-xs" id="tab-nonaktif" onclick="switchTab('nonaktif')">
+          Nonaktif
+          {% set jumlah_deleted = wilayah_all | selectattr('is_deleted', 'eq', 1) | list | length %}
+          {% if jumlah_deleted > 0 %}
+          <span class="ml-1 bg-red-100 text-red-600 text-xs font-bold px-1.5 rounded-full">{{ jumlah_deleted }}</span>
+          {% endif %}
+        </button>
+      </div>
+
+      <!-- Wilayah Aktif -->
+      <div id="panel-aktif" class="overflow-y-auto" style="max-height:500px;">
+        <table class="tbl">
+          <thead><tr><th>Nama Wilayah</th><th></th></tr></thead>
+          <tbody>
+            {% for w in wilayah_all if not w.is_deleted %}
+            <tr id="row-w-{{ w.id_wilayah }}">
+              <td class="text-xs font-medium">{{ w.nama_wilayah }}</td>
+              <td class="text-right" style="white-space:nowrap;">
+                <button class="btn-ghost text-slate-400 hover:text-blue-600"
+                        data-id="{{ w.id_wilayah }}" data-nama="{{ w.nama_wilayah }}"
+                        onclick="handleEditWilayah(this)" title="Edit nama">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                </button>
+                <button class="btn-ghost text-slate-400 hover:text-red-600"
+                        data-id="{{ w.id_wilayah }}" data-nama="{{ w.nama_wilayah }}"
+                        onclick="handleHapusWilayah(this)" title="Nonaktifkan (soft delete)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="2" class="text-center py-6 text-xs text-slate-400">Tidak ada wilayah aktif.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Wilayah Nonaktif -->
+      <div id="panel-nonaktif" class="hidden overflow-y-auto" style="max-height:500px;">
+        <div class="px-4 py-2">
+          <p class="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+            ⚠️ Wilayah nonaktif tetap tersimpan di database untuk keperluan retraining model. Data historisnya tidak akan muncul di manajemen data historis.
+          </p>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Nama Wilayah</th><th></th></tr></thead>
+          <tbody>
+            {% for w in wilayah_all if w.is_deleted %}
+            <tr id="row-del-{{ w.id_wilayah }}" class="row-deleted">
+              <td class="text-xs font-medium">
+                {{ w.nama_wilayah }}
+                <span class="badge-deleted ml-1">nonaktif</span>
+              </td>
+              <td class="text-right">
+                <button onclick="handleRestoreWilayah({{ w.id_wilayah }}, '{{ w.nama_wilayah }}')"
+                        class="btn btn-sm btn-success" title="Aktifkan kembali">
+                  Aktifkan
+                </button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="2" class="text-center py-6 text-xs text-slate-400">Tidak ada wilayah nonaktif.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /panel wilayah -->
+
+    <!-- ▌ PANEL KANAN — Data Historis ▌ -->
+    <div class="lg:col-span-3 space-y-4">
+
+      <div class="section-card fade-up">
+        <div class="section-header">
+          <p class="section-title">📊 Data Historis IPM</p>
+          <div class="flex items-center gap-2">
+            <button onclick="cetakExcel()" class="btn btn-success btn-sm" id="btn-cetak-data">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Cetak Excel
+            </button>
+            <button onclick="openModalCSV()" class="btn btn-primary btn-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              Import CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter -->
+        <form method="GET" action="{{ url_for('data_indikator') }}">
+          <div class="filter-row">
+            <select name="filter_wilayah" onchange="this.form.submit()">
+              <option value="">Semua Wilayah</option>
+              {% for w in wilayah_list %}
+              <option value="{{ w.id_wilayah }}" {% if filter_wilayah == w.id_wilayah|string %}selected{% endif %}>
+                {{ w.nama_wilayah }}
+              </option>
+              {% endfor %}
+            </select>
+            <select name="filter_tahun" onchange="this.form.submit()">
+              <option value="">Semua Tahun</option>
+              {% for t in tahun_list %}
+              <option value="{{ t }}" {% if filter_tahun == t|string %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+            <select name="per_page" onchange="this.form.submit()">
+              {% for n in [5,10,20,50,100] %}
+              <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} / hal</option>
+              {% endfor %}
+            </select>
+            <input type="hidden" name="page" value="1">
+            {% if filter_wilayah or filter_tahun %}
+            <a href="{{ url_for('data_indikator') }}" class="btn btn-light btn-sm">Reset</a>
+            {% endif %}
+            <span class="text-xs text-slate-400 ml-auto">{{ total_rows }} baris</span>
+          </div>
+        </form>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Wilayah</th>
+                <th>Tahun</th>
+                <th class="text-center">AHH</th>
+                <th class="text-center">HLS</th>
+                <th class="text-center">RLS</th>
+                <th class="text-center">Pengeluaran</th>
+                <th class="text-center">IPM Aktual</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in historis_list %}
+              <tr>
+                <td class="text-xs font-medium text-slate-700">{{ h.nama_wilayah }}</td>
+                <td class="font-mono text-xs font-bold">{{ h.tahun }}</td>
+                <td class="text-center font-mono text-xs">{{ '%.2f'|format(h.ahh) if h.ahh else '—' }}</td>
+                <td class="text-center font-mono text-xs">{{ '%.2f'|format(h.hls) if h.hls else '—' }}</td>
+                <td class="text-center font-mono text-xs">{{ '%.2f'|format(h.rls) if h.rls else '—' }}</td>
+                <td class="text-center font-mono text-xs">{{ '{:,.0f}'.format(h.pengeluaran) if h.pengeluaran else '—' }}</td>
+                <td class="text-center font-mono text-xs font-bold text-slate-800">{{ '%.2f'|format(h.ipm_aktual) if h.ipm_aktual else '—' }}</td>
+                <td class="text-right">
+                  <button class="btn-ghost text-slate-400 hover:text-blue-600"
+                          data-id="{{ h.id_indikator }}"
+                          data-wilayah="{{ h.nama_wilayah }}"
+                          data-tahun="{{ h.tahun }}"
+                          data-ahh="{{ h.ahh }}"
+                          data-hls="{{ h.hls }}"
+                          data-rls="{{ h.rls }}"
+                          data-pengeluaran="{{ h.pengeluaran }}"
+                          data-ipm="{{ h.ipm_aktual }}"
+                          onclick="handleEditClick(this)" title="Edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="8" class="text-center py-10 text-xs text-slate-400">Tidak ada data ditemukan.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="pag-row">
+          {% set base_url = url_for('data_indikator', filter_wilayah=filter_wilayah, filter_tahun=filter_tahun, per_page=per_page) %}
+          <a href="{{ base_url }}&page={{ page - 1 }}" class="pag-btn {% if page <= 1 %}disabled{% endif %}">‹</a>
+          {% for p in range([1, page-2]|max, [total_pages+1, page+3]|min) %}
+          <a href="{{ base_url }}&page={{ p }}" class="pag-btn {% if p == page %}active{% endif %}">{{ p }}</a>
+          {% endfor %}
+          <a href="{{ base_url }}&page={{ page + 1 }}" class="pag-btn {% if page >= total_pages %}disabled{% endif %}">›</a>
+          <span class="text-xs text-slate-400">Hal {{ page }} / {{ total_pages }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+    </div><!-- /right panel -->
+  </div>
+</main>
+
+<footer id="site-footer">
+  <span>© IPM Predictor Jawa Timur</span><span class="sep">·</span>
+  <span>Model GRU (Bidirectional)</span><span class="sep">·</span>
+  <span>Sumber Data: BPS Provinsi Jawa Timur</span>
+</footer>
+
+<!-- ══ MODALS ════════════════════════════════════════════════════════════════ -->
+
+<!-- Modal Tambah Wilayah -->
+<div class="modal-backdrop" id="modal-tambah-wilayah">
+  <div class="modal-box">
+    <div class="modal-header">
+      <p class="modal-title">Tambah Wilayah Baru</p>
+      <button class="modal-close" onclick="closeModal('modal-tambah-wilayah')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nama Wilayah</label>
+        <input type="text" class="form-input" id="tambah-nama-wilayah" placeholder="cth: Kabupaten Pacitan">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-tambah-wilayah')" class="btn btn-light">Batal</button>
+      <button onclick="simpanTambahWilayah()" class="btn btn-primary">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Wilayah -->
+<div class="modal-backdrop" id="modal-edit-wilayah">
+  <div class="modal-box">
+    <div class="modal-header">
+      <p class="modal-title">Edit Nama Wilayah</p>
+      <button class="modal-close" onclick="closeModal('modal-edit-wilayah')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-wilayah-id">
+      <div class="form-group">
+        <label class="form-label">Nama Baru</label>
+        <input type="text" class="form-input" id="edit-wilayah-nama">
+      </div>
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p class="text-xs text-blue-800">ℹ️ Perubahan nama wilayah akan diperbarui di seluruh database secara otomatis.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-edit-wilayah')" class="btn btn-light">Batal</button>
+      <button onclick="simpanEditWilayah()" class="btn btn-primary">Simpan Nama</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Indikator -->
+<div class="modal-backdrop" id="modal-edit-indikator">
+  <div class="modal-box">
+    <div class="modal-header">
+      <p class="modal-title" id="edit-indikator-judul">Edit Data Indikator</p>
+      <button class="modal-close" onclick="closeModal('modal-edit-indikator')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id-indikator">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="form-group">
+          <label class="form-label">AHH (Angka Harapan Hidup)</label>
+          <input type="number" step="0.01" class="form-input" id="edit-ahh" placeholder="cth: 72.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">HLS (Harapan Lama Sekolah)</label>
+          <input type="number" step="0.01" class="form-input" id="edit-hls" placeholder="cth: 12.3">
+        </div>
+        <div class="form-group">
+          <label class="form-label">RLS (Rata-rata Lama Sekolah)</label>
+          <input type="number" step="0.01" class="form-input" id="edit-rls" placeholder="cth: 7.8">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pengeluaran per Kapita (Rp)</label>
+          <input type="number" step="1" class="form-input" id="edit-pengeluaran" placeholder="cth: 9500000">
+        </div>
+        <div class="form-group col-span-2">
+          <label class="form-label">IPM Aktual</label>
+          <input type="number" step="0.01" class="form-input" id="edit-ipm-aktual" placeholder="cth: 72.34">
+        </div>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+        <p class="text-xs text-amber-800 font-semibold">⚠️ Menyimpan data akan memicu retraining model secara otomatis.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-edit-indikator')" class="btn btn-light">Batal</button>
+      <button onclick="konfirmasiSimpanIndikator()" class="btn btn-primary">Simpan & Retrain</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tambah Tahun (semua wilayah aktif) -->
+<div class="modal-backdrop" id="modal-tambah-tahun">
+  <div class="modal-box wide">
+    <div class="modal-header">
+      <p class="modal-title">Tambah Data Satu Tahun — Semua Wilayah Aktif</p>
+      <button class="modal-close" onclick="closeModal('modal-tambah-tahun')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="flex items-center gap-4 mb-4">
+        <div>
+          <label class="form-label">Tahun Data</label>
+          <input type="number" class="form-input" id="tahun-baru" placeholder="cth: 2024" style="width:140px;">
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 flex-1">
+          <p class="text-xs text-blue-800">Data harus diisi untuk <strong>semua wilayah aktif</strong>. Wilayah yang sudah dinonaktifkan tidak akan ditampilkan di sini.</p>
+        </div>
+      </div>
+
+      <div id="tahun-loading" class="text-center py-8 text-xs text-slate-400">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mx-auto mb-2 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Memuat daftar wilayah...
+      </div>
+
+      <div id="tahun-tbl-wrap" class="hidden overflow-x-auto" style="max-height:400px;overflow-y:auto;">
+        <table class="tahun-tbl" id="tahun-data-table">
+          <thead>
+            <tr>
+              <th style="min-width:150px;">Wilayah</th>
+              <th>AHH</th>
+              <th>HLS</th>
+              <th>RLS</th>
+              <th>Pengeluaran (Rp)</th>
+              <th>IPM Aktual</th>
+            </tr>
+          </thead>
+          <tbody id="tahun-data-tbody"></tbody>
+        </table>
+      </div>
+
+      <div id="tahun-error" class="hidden mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+        <p class="text-xs text-red-700" id="tahun-error-msg"></p>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
+        <p class="text-xs text-amber-800 font-semibold">⚠️ Menyimpan data akan memicu retraining model secara otomatis.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-tambah-tahun')" class="btn btn-light">Batal</button>
+      <button onclick="konfirmasiSimpanTahun()" class="btn btn-primary" id="btn-simpan-tahun">Simpan & Retrain</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Import CSV -->
+<div class="modal-backdrop" id="modal-csv">
+  <div class="modal-box">
+    <div class="modal-header">
+      <p class="modal-title">Import Data CSV</p>
+      <button class="modal-close" onclick="closeModal('modal-csv')">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Drop Zone -->
+      <div id="drop-zone" style="border:2px dashed #e2e8f0;border-radius:10px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .2s;"
+           ondragover="event.preventDefault();this.style.borderColor='#3b82f6'"
+           ondragleave="this.style.borderColor='#e2e8f0'"
+           ondrop="handleDropCSV(event)">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p class="text-xs text-slate-500 mb-2" id="drop-label">Seret &amp; lepas file CSV atau klik untuk pilih</p>
+        <label class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 text-white text-xs font-semibold cursor-pointer hover:bg-slate-800 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          Pilih CSV
+          <input type="file" accept=".csv" id="csv-file-input" class="hidden" onchange="handleFileSelectCSV(this)">
+        </label>
+        <p class="text-xs text-slate-400 mt-2">Format: <span class="font-mono">.csv</span> · pemisah titik koma · maks 5 MB</p>
+        <p class="text-xs text-slate-400">Kolom: <span class="font-mono">Kabupaten/Kota; Tahun; AHH; HLS; RLS; Pengeluaran per Kapita Riil (Rp); IPM</span></p>
+      </div>
+
+      <!-- Hasil Validasi Pra-upload -->
+      <div id="csv-validation" class="hidden mt-3 space-y-2">
+        <!-- Summary cards -->
+        <div class="grid grid-cols-3 gap-2" id="csv-summary-cards"></div>
+        <!-- Warning list -->
+        <div id="csv-warnings"></div>
+      </div>
+
+      <div id="import-spinner" class="hidden text-center py-4">
+        <svg class="w-6 h-6 mx-auto animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <p class="text-xs text-slate-500 mt-2">Mengimpor data...</p>
+      </div>
+
+      <div id="import-result" class="hidden mt-3 text-xs rounded-lg p-3"></div>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
+        <p class="text-xs text-amber-800 font-semibold">⚠️ Setelah import berhasil, sistem akan langsung menuju halaman Retraining.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-csv')" class="btn btn-light">Batal</button>
+      <button onclick="uploadCSV()" class="btn btn-primary" id="btn-simpan-csv" disabled>Import & Retrain</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Modal helpers ────────────────────────────────────────────────────
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function redirectToRetraining(delay=0) {
+    document.getElementById('loading-overlay').classList.add('show');
+    setTimeout(() => { window.location.href = '{{ url_for("retraining", auto_start=1) }}'; }, delay);
+  }
+
+  // ── Tab switch ───────────────────────────────────────────────────────
+  function switchTab(tab) {
+    const isAktif = tab === 'aktif';
+    document.getElementById('panel-aktif').classList.toggle('hidden', !isAktif);
+    document.getElementById('panel-nonaktif').classList.toggle('hidden', isAktif);
+    document.getElementById('tab-aktif').classList.toggle('active', isAktif);
+    document.getElementById('tab-nonaktif').classList.toggle('active', !isAktif);
+  }
+
+  // ── WILAYAH: Tambah ──────────────────────────────────────────────────
+  function simpanTambahWilayah() {
+    const nama = document.getElementById('tambah-nama-wilayah').value.trim();
+    if (!nama) { Swal.fire('Error','Nama tidak boleh kosong.','warning'); return; }
+    fetch('/api/wilayah/tambah', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({nama_wilayah: nama})
+    }).then(r=>r.json()).then(d => {
+      if (d.ok) {
+        closeModal('modal-tambah-wilayah');
+        Swal.fire({icon:'success',title:'Wilayah Ditambahkan!',timer:1200,showConfirmButton:false});
+        setTimeout(() => location.reload(), 1300);
+      } else { Swal.fire('Gagal', d.msg, 'error'); }
+    });
+  }
+
+  // ── WILAYAH: Edit ────────────────────────────────────────────────────
+  function handleEditWilayah(btn) {
+    document.getElementById('edit-wilayah-id').value   = btn.dataset.id;
+    document.getElementById('edit-wilayah-nama').value = btn.dataset.nama;
+    openModal('modal-edit-wilayah');
+  }
+  function simpanEditWilayah() {
+    const id   = document.getElementById('edit-wilayah-id').value;
+    const nama = document.getElementById('edit-wilayah-nama').value.trim();
+    if (!nama) { Swal.fire('Error','Nama tidak boleh kosong.','warning'); return; }
+    fetch(`/api/wilayah/edit/${id}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({nama_wilayah: nama})
+    }).then(r=>r.json()).then(d => {
+      if (d.ok) {
+        closeModal('modal-edit-wilayah');
+        Swal.fire({icon:'success',title:'Tersimpan!',timer:1200,showConfirmButton:false});
+        setTimeout(() => location.reload(), 1300);
+      } else { Swal.fire('Gagal', d.msg, 'error'); }
+    });
+  }
+
+  // ── WILAYAH: Soft Delete ─────────────────────────────────────────────
+  function handleHapusWilayah(btn) {
+    const id = btn.dataset.id, nama = btn.dataset.nama;
+    Swal.fire({
+      title: 'Nonaktifkan Wilayah?',
+      html: `<b>${nama}</b> akan disembunyikan dari daftar aktif.<br>
+             <small class="text-slate-500">Data historisnya tetap tersimpan dan tetap digunakan untuk retraining model.</small>`,
+      icon: 'warning', showCancelButton: true,
+      confirmButtonText: 'Ya, Nonaktifkan', cancelButtonText: 'Batal',
+      confirmButtonColor: '#dc2626',
+    }).then(res => {
+      if (!res.isConfirmed) return;
+      fetch(`/api/wilayah/hapus/${id}`, {method:'DELETE'}).then(r=>r.json()).then(d => {
+        if (d.ok) {
+          Swal.fire({icon:'success',title:'Dinonaktifkan!',timer:1200,showConfirmButton:false});
+          setTimeout(() => location.reload(), 1300);
+        } else { Swal.fire('Gagal', d.msg, 'error'); }
+      });
+    });
+  }
+
+  // ── WILAYAH: Restore ─────────────────────────────────────────────────
+  function handleRestoreWilayah(id, nama) {
+    Swal.fire({
+      title: `Aktifkan "${nama}"?`,
+      text: 'Wilayah ini akan muncul kembali di semua daftar aktif.',
+      icon: 'question', showCancelButton: true,
+      confirmButtonText: 'Ya, Aktifkan', cancelButtonText: 'Batal',
+      confirmButtonColor: '#16a34a',
+    }).then(res => {
+      if (!res.isConfirmed) return;
+      fetch(`/api/wilayah/restore/${id}`, {method:'PUT'}).then(r=>r.json()).then(d => {
+        if (d.ok) {
+          Swal.fire({icon:'success',title:'Diaktifkan!',timer:1200,showConfirmButton:false});
+          setTimeout(() => location.reload(), 1300);
+        } else { Swal.fire('Gagal', d.msg, 'error'); }
+      });
+    });
+  }
+
+  // ── INDIKATOR: Edit ──────────────────────────────────────────────────
+  function handleEditClick(btn) {
+    const d = btn.dataset;
+    document.getElementById('edit-id-indikator').value     = d.id;
+    document.getElementById('edit-indikator-judul').textContent = `Edit Data — ${d.wilayah} (${d.tahun})`;
+    document.getElementById('edit-ahh').value              = d.ahh;
+    document.getElementById('edit-hls').value              = d.hls;
+    document.getElementById('edit-rls').value              = d.rls;
+    document.getElementById('edit-pengeluaran').value      = d.pengeluaran;
+    document.getElementById('edit-ipm-aktual').value       = d.ipm;
+    openModal('modal-edit-indikator');
+  }
+
+  function konfirmasiSimpanIndikator() {
+    const ahh  = parseFloat(document.getElementById('edit-ahh').value);
+    const hls  = parseFloat(document.getElementById('edit-hls').value);
+    const rls  = parseFloat(document.getElementById('edit-rls').value);
+    const pen  = parseFloat(document.getElementById('edit-pengeluaran').value);
+    const ipm  = parseFloat(document.getElementById('edit-ipm-aktual').value);
+
+    if ([ahh,hls,rls,pen,ipm].some(isNaN)) { Swal.fire('Validasi','Semua field harus diisi dengan angka valid.','warning'); return; }
+    if (ahh <= 0 || ahh > 120) { Swal.fire('Validasi','AHH harus antara 0–120.','warning'); return; }
+    if (hls <= 0 || hls > 30)  { Swal.fire('Validasi','HLS harus antara 0–30.','warning'); return; }
+    if (rls <= 0 || rls > 20)  { Swal.fire('Validasi','RLS harus antara 0–20.','warning'); return; }
+    if (pen <= 0)               { Swal.fire('Validasi','Pengeluaran harus > 0.','warning'); return; }
+    if (ipm <= 0 || ipm > 100) { Swal.fire('Validasi','IPM Aktual harus antara 0–100.','warning'); return; }
+
+    Swal.fire({
+      title: 'Simpan & Mulai Retraining?',
+      html: '<p class="text-sm">Data akan disimpan dan model GRU akan dilatih ulang secara otomatis.</p>',
+      icon: 'question', showCancelButton: true,
+      confirmButtonText: 'Ya, Simpan & Retrain',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#1e3a5f',
+    }).then(res => {
+      if (!res.isConfirmed) return;
+      const id = document.getElementById('edit-id-indikator').value;
+      fetch(`/api/indikator/edit/${id}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ahh, hls, rls, pengeluaran: pen, ipm_aktual: ipm})
+      }).then(r=>r.json()).then(d => {
+        if (d.ok) {
+          closeModal('modal-edit-indikator');
+          redirectToRetraining(200);
+        } else { Swal.fire('Gagal', d.msg, 'error'); }
+      });
+    });
+  }
+
+  // ── TAMBAH TAHUN (semua wilayah aktif) ──────────────────────────────
+  let wilayahAktifData = [];
+
+  function openModalTambahTahun() {
+    document.getElementById('tahun-loading').style.display = 'block';
+    document.getElementById('tahun-tbl-wrap').classList.add('hidden');
+    document.getElementById('tahun-error').classList.add('hidden');
+    openModal('modal-tambah-tahun');
+
+    fetch('/api/indikator/wilayah-aktif-latest').then(r => r.json()).then(d => {
+      document.getElementById('tahun-loading').style.display = 'none';
+      if (!d.ok) { showTahunError('Gagal memuat daftar wilayah: ' + d.msg); return; }
+      wilayahAktifData = d.data;
+      renderTahunTable(d.data);
+      document.getElementById('tahun-tbl-wrap').classList.remove('hidden');
+
+      // Auto-isi tahun = tahun terakhir + 1
+      const maxTahun = Math.max(...d.data.filter(r => r.tahun_terakhir).map(r => parseInt(r.tahun_terakhir)));
+      if (maxTahun > 0) document.getElementById('tahun-baru').value = maxTahun + 1;
+    }).catch(() => {
+      document.getElementById('tahun-loading').style.display = 'none';
+      showTahunError('Gagal menghubungi server.');
+    });
+  }
+
+  function renderTahunTable(data) {
+    const tbody = document.getElementById('tahun-data-tbody');
+    tbody.innerHTML = '';
+    data.forEach(w => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="font-medium text-xs">${w.nama_wilayah}</td>
+        <td><input type="number" step="0.01" class="tahun-input" data-id="${w.id_wilayah}" data-field="ahh" value="${w.ahh||''}"></td>
+        <td><input type="number" step="0.01" class="tahun-input" data-id="${w.id_wilayah}" data-field="hls" value="${w.hls||''}"></td>
+        <td><input type="number" step="0.01" class="tahun-input" data-id="${w.id_wilayah}" data-field="rls" value="${w.rls||''}"></td>
+        <td><input type="number" step="1" class="tahun-input" style="width:90px;" data-id="${w.id_wilayah}" data-field="pengeluaran" value="${w.pengeluaran||''}"></td>
+        <td><input type="number" step="0.01" class="tahun-input" data-id="${w.id_wilayah}" data-field="ipm_aktual" value="${w.ipm_aktual||''}"></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function showTahunError(msg) {
+    const el = document.getElementById('tahun-error');
+    document.getElementById('tahun-error-msg').textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function konfirmasiSimpanTahun() {
+    const tahun = parseInt(document.getElementById('tahun-baru').value);
+    if (!tahun || tahun < 1900 || tahun > 2100) {
+      Swal.fire('Validasi','Tahun tidak valid (1900–2100).','warning'); return;
+    }
+
+    // Kumpulkan data dari tabel
+    const rows = [];
+    let hasError = false;
+    document.querySelectorAll('#tahun-data-tbody tr').forEach((tr, idx) => {
+      const inputs = tr.querySelectorAll('.tahun-input');
+      const w = wilayahAktifData[idx];
+      const entry = {id_wilayah: w.id_wilayah};
+      inputs.forEach(inp => { entry[inp.dataset.field] = parseFloat(inp.value) || null; });
+
+      // Validasi semua field harus terisi
+      const fields = ['ahh','hls','rls','pengeluaran','ipm_aktual'];
+      if (fields.some(f => !entry[f])) {
+        tr.style.background = '#fff1f2';
+        hasError = true;
+      } else {
+        tr.style.background = '';
+        rows.push(entry);
+      }
+    });
+
+    if (hasError) {
+      Swal.fire('Validasi','Semua field harus diisi untuk setiap wilayah aktif (baris merah belum lengkap).','warning'); return;
+    }
+
+    Swal.fire({
+      title: `Simpan Data Tahun ${tahun}?`,
+      html: `<p class="text-sm">Data untuk <strong>${rows.length} wilayah aktif</strong> akan disimpan dan model GRU akan dilatih ulang secara otomatis.</p>`,
+      icon: 'question', showCancelButton: true,
+      confirmButtonText: 'Ya, Simpan & Retrain',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#1e3a5f',
+    }).then(res => {
+      if (!res.isConfirmed) return;
+      document.getElementById('btn-simpan-tahun').disabled = true;
+
+      fetch('/api/indikator/tambah-tahun', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({tahun, data: rows})
+      }).then(r => r.json()).then(d => {
+        if (d.ok) {
+          closeModal('modal-tambah-tahun');
+          redirectToRetraining(200);
+        } else {
+          document.getElementById('btn-simpan-tahun').disabled = false;
+          Swal.fire('Gagal', d.msg, 'error');
+        }
+      }).catch(() => {
+        document.getElementById('btn-simpan-tahun').disabled = false;
+        Swal.fire('Error', 'Gagal menghubungi server.', 'error');
+      });
+    });
+  }
+
+  // ── CSV: Wilayah aktif dari server untuk validasi ────────────────────
+  let wilayahAktifSet = new Set();
+  let selectedCSVFile = null;
+  let csvValidOk = false;
+
+  // Ambil daftar wilayah aktif saat modal dibuka
+  function openModalCSV() {
+    selectedCSVFile = null;
+    csvValidOk = false;
+    document.getElementById('csv-file-input').value = '';
+    document.getElementById('drop-label').textContent = 'Seret & lepas file CSV atau klik untuk pilih';
+    document.getElementById('drop-zone').style.borderColor = '#e2e8f0';
+    document.getElementById('import-result').classList.add('hidden');
+    document.getElementById('import-spinner').classList.add('hidden');
+    document.getElementById('csv-validation').classList.add('hidden');
+    document.getElementById('btn-simpan-csv').disabled = true;
+
+    // Ambil wilayah aktif
+    fetch('/api/wilayah/list').then(r=>r.json()).then(d => {
+      wilayahAktifSet = new Set((d.data||[]).map(w => w.nama_wilayah.trim().toLowerCase()));
+    }).catch(() => { wilayahAktifSet = new Set(); });
+
+    openModal('modal-csv');
+  }
+
+  function handleFileSelectCSV(input) {
+    const file = input.files[0]; if (!file) return;
+    if (!file.name.endsWith('.csv')) { Swal.fire('Format Salah','Hanya file .csv yang diterima.','warning'); return; }
+    if (file.size > 5*1024*1024) { Swal.fire('File Terlalu Besar','Maksimal 5 MB.','warning'); return; }
+    selectedCSVFile = file;
+    document.getElementById('drop-label').textContent = `✓ ${file.name}`;
+    document.getElementById('drop-zone').style.borderColor = '#86efac';
+    validateCSVClient(file);
+  }
+
+  function handleDropCSV(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').style.borderColor = '#e2e8f0';
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const fi = document.getElementById('csv-file-input');
+      const dt = new DataTransfer(); dt.items.add(file); fi.files = dt.files;
+      handleFileSelectCSV(fi);
+    }
+  }
+
+  // ── Validasi CSV di sisi klien sebelum upload ─────────────────────────
+  function validateCSVClient(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const content = e.target.result;
+      const lines   = content.split('\n').filter(l => l.trim());
+      if (lines.length < 2) {
+        showValidationError('File CSV kosong atau tidak memiliki data.'); return;
+      }
+
+      const dataLines = lines.slice(1); // skip header
+      const tahunMap  = {}; // tahun -> Set<namaWilayah>
+      const tidakDikenal = [];
+
+      dataLines.forEach(line => {
+        const cols = line.split(';');
+        const nama  = (cols[0]||'').trim();
+        const tahun = (cols[1]||'').trim();
+        if (!nama || !tahun) return;
+
+        // Cek apakah wilayah dikenal
+        if (!wilayahAktifSet.has(nama.toLowerCase())) {
+          if (!tidakDikenal.includes(nama)) tidakDikenal.push(nama);
+        }
+        if (!tahunMap[tahun]) tahunMap[tahun] = new Set();
+        tahunMap[tahun].add(nama.toLowerCase());
+      });
+
+      // Validasi 1: ada wilayah tidak dikenal?
+      if (tidakDikenal.length > 0) {
+        showValidationError(
+          `<b>❌ ${tidakDikenal.length} wilayah tidak dikenal dalam sistem:</b><br>` +
+          tidakDikenal.slice(0,5).map(n=>`• ${n}`).join('<br>') +
+          (tidakDikenal.length > 5 ? `<br>... dan ${tidakDikenal.length-5} lainnya` : '') +
+          `<br><br>Tambahkan wilayah tersebut di <b>Manajemen Wilayah</b> terlebih dahulu.`
+        ); return;
+      }
+
+      const JUMLAH_WILAYAH = wilayahAktifSet.size || 38;
+      const tahunList = Object.keys(tahunMap);
+      const warnings  = [];
+      let allValid    = true;
+
+      // Validasi 2: tiap tahun harus punya minimal 38 wilayah
+      tahunList.forEach(thn => {
+        const jumlah = tahunMap[thn].size;
+        if (jumlah < JUMLAH_WILAYAH) {
+          warnings.push(`⚠️ Tahun <b>${thn}</b>: hanya ${jumlah} dari ${JUMLAH_WILAYAH} wilayah aktif — data tidak lengkap untuk satu tahun penuh.`);
+          allValid = false;
+        }
+      });
+
+      // Tampilkan summary
+      const summaryCards = document.getElementById('csv-summary-cards');
+      summaryCards.innerHTML = `
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center;">
+          <p style="font-size:18px;font-weight:900;color:#16a34a;font-family:'IBM Plex Mono';">${tahunList.length}</p>
+          <p style="font-size:10px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.06em;">Tahun</p>
+        </div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;text-align:center;">
+          <p style="font-size:18px;font-weight:900;color:#1d4ed8;font-family:'IBM Plex Mono';">${dataLines.length}</p>
+          <p style="font-size:10px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.06em;">Total Baris</p>
+        </div>
+        <div style="background:${allValid?'#f0fdf4':'#fff7ed'};border:1px solid ${allValid?'#86efac':'#fed7aa'};border-radius:8px;padding:10px;text-align:center;">
+          <p style="font-size:14px;font-weight:900;color:${allValid?'#16a34a':'#c2410c'};">${allValid?'✓ Valid':'⚠ Periksa'}</p>
+          <p style="font-size:10px;font-weight:700;color:${allValid?'#15803d':'#9a3412'};text-transform:uppercase;letter-spacing:.06em;">Status</p>
+        </div>`;
+
+      const warnDiv = document.getElementById('csv-warnings');
+      if (warnings.length) {
+        warnDiv.innerHTML = warnings.map(w =>
+          `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 12px;font-size:11px;color:#9a3412;margin-top:6px;">${w}</div>`
+        ).join('');
+      } else {
+        warnDiv.innerHTML = `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 12px;font-size:11px;color:#166534;margin-top:6px;">
+          ✅ Semua data valid. Tahun: ${tahunList.join(', ')} · ${dataLines.length} baris siap diimport.
+          <br><small style="color:#15803d;">Wilayah & tahun sama → UPDATE · Tahun berbeda → INSERT baru</small>
+        </div>`;
+      }
+
+      document.getElementById('csv-validation').classList.remove('hidden');
+
+      // Tombol import hanya aktif jika tidak ada wilayah tidak dikenal
+      // Peringatan tahun tidak lengkap boleh dilanjut dengan konfirmasi
+      csvValidOk = true;
+      document.getElementById('btn-simpan-csv').disabled = false;
+
+      if (warnings.length) {
+        // Ada warning tapi tidak fatal, beri tahu user
+        Swal.fire({
+          icon: 'warning',
+          title: 'Data Tidak Lengkap',
+          html: `<p class="text-sm">Beberapa tahun belum memiliki data lengkap (38 wilayah). Kamu tetap bisa melanjutkan import, tapi data tidak lengkap akan mempengaruhi kualitas retraining.</p>`,
+          showCancelButton: true,
+          confirmButtonText: 'Lanjut Import',
+          cancelButtonText: 'Batal',
+        }).then(res => {
+          if (!res.isConfirmed) {
+            document.getElementById('btn-simpan-csv').disabled = true;
+            csvValidOk = false;
+          }
+        });
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function showValidationError(html) {
+    const warnDiv = document.getElementById('csv-warnings');
+    document.getElementById('csv-summary-cards').innerHTML = '';
+    warnDiv.innerHTML = `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:11px;color:#991b1b;">${html}</div>`;
+    document.getElementById('csv-validation').classList.remove('hidden');
+    document.getElementById('btn-simpan-csv').disabled = true;
+    csvValidOk = false;
+  }
+
+  function uploadCSV() {
+    if (!selectedCSVFile || !csvValidOk) {
+      Swal.fire('Pilih File','Pilih dan validasi file CSV terlebih dahulu.','info'); return;
+    }
+
+    Swal.fire({
+      title: 'Konfirmasi Import',
+      html: `<p class="text-sm">Data akan diimport:<br>
+        • Wilayah & tahun <b>sama</b> → data diperbarui (UPDATE)<br>
+        • Wilayah sama, tahun <b>berbeda</b> → data baru ditambah (INSERT)<br><br>
+        Setelah import, model akan dilatih ulang secara otomatis.</p>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Import & Retrain',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#1e3a5f',
+    }).then(res => {
+      if (!res.isConfirmed) return;
+
+      const spinner = document.getElementById('import-spinner');
+      const result  = document.getElementById('import-result');
+      const btn     = document.getElementById('btn-simpan-csv');
+      spinner.classList.remove('hidden');
+      result.classList.add('hidden');
+      btn.disabled = true;
+
+      const fd = new FormData(); fd.append('file', selectedCSVFile);
+      fetch('/api/indikator/import-csv', {method:'POST', body:fd})
+      .then(r=>r.json()).then(d => {
+        spinner.classList.add('hidden'); btn.disabled = false;
+        result.classList.remove('hidden');
+        if (d.ok) {
+          result.style.cssText = 'background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:12px;border-radius:8px;';
+          result.innerHTML = `✅ <b>Import berhasil!</b><br>${d.msg}`;
+          setTimeout(() => { closeModal('modal-csv'); redirectToRetraining(200); }, 1800);
+        } else {
+          result.style.cssText = 'background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;padding:12px;border-radius:8px;';
+          result.innerHTML = `❌ <b>Gagal:</b> ${d.msg}`;
+        }
+      }).catch(() => {
+        spinner.classList.add('hidden'); btn.disabled = false;
+        result.classList.remove('hidden');
+        result.style.cssText = 'background:#fee2e2;color:#991b1b;padding:12px;border-radius:8px;';
+        result.textContent = 'Terjadi kesalahan jaringan.';
+      });
+    });
+  }
+
+  // ── Cetak Excel Data Historis (semua data) ───────────────────────────
+  function cetakExcel() {
+    const btn = document.getElementById('btn-cetak-data');
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;"></span> Menyiapkan...';
+
+    // Ambil filter yang sedang aktif
+    const filterWilayah = document.querySelector('select[name="filter_wilayah"]')?.value || '';
+    const filterTahun   = document.querySelector('select[name="filter_tahun"]')?.value || '';
+
+    const resetBtn = () => {
+      btn.disabled = false;
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Cetak Excel`;
+    };
+
+    // Fetch SEMUA data dari server (bukan cuma yang di halaman ini)
+    const params = new URLSearchParams();
+    if (filterWilayah) params.append('filter_wilayah', filterWilayah);
+    if (filterTahun)   params.append('filter_tahun',   filterTahun);
+
+    fetch(`/api/indikator/export-excel?${params}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok || !d.data.length) {
+        Swal.fire('Kosong', 'Tidak ada data untuk diekspor.', 'info');
+        resetBtn(); return;
+      }
+
+      // Buat workbook dengan SheetJS
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Data Historis
+      const wsData = XLSX.utils.json_to_sheet(d.data, {
+        header: ['Kabupaten/Kota','Tahun','AHH','HLS','RLS','Pengeluaran per Kapita (Rp)','IPM Aktual']
+      });
+
+      // Lebar kolom
+      wsData['!cols'] = [
+        {wch:30}, // Kabupaten/Kota
+        {wch:8},  // Tahun
+        {wch:10}, // AHH
+        {wch:10}, // HLS
+        {wch:10}, // RLS
+        {wch:24}, // Pengeluaran
+        {wch:12}, // IPM
+      ];
+
+      XLSX.utils.book_append_sheet(wb, wsData, 'Data Historis IPM');
+
+      // Sheet 2: Info ekspor
+      const info = [
+        ['Laporan Data Historis IPM Provinsi Jawa Timur'],
+        ['Sumber Data', 'BPS Provinsi Jawa Timur'],
+        ['Diekspor', new Date().toLocaleString('id-ID')],
+        ['Filter Wilayah', filterWilayah ? document.querySelector(`select[name="filter_wilayah"] option:checked`)?.textContent : 'Semua Wilayah'],
+        ['Filter Tahun', filterTahun || 'Semua Tahun'],
+        ['Total Baris', d.total],
+        [''],
+        ['Sistem', 'IPM Predictor Jawa Timur'],
+      ];
+      const wsInfo = XLSX.utils.aoa_to_sheet(info);
+      wsInfo['!cols'] = [{wch:20},{wch:40}];
+      XLSX.utils.book_append_sheet(wb, wsInfo, 'Info');
+
+      // Download
+      const tgl = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const nama = filterWilayah
+        ? `IPM_${document.querySelector(`select[name="filter_wilayah"] option:checked`)?.textContent?.replace(/\s+/g,'_')}_${tgl}`
+        : `Data_Historis_IPM_Jatim_${tgl}`;
+      XLSX.writeFile(wb, `${nama}.xlsx`);
+
+      Swal.fire({icon:'success', title:'Excel Berhasil Diunduh!',
+        html:`<p class="text-sm">${d.total} baris data berhasil diekspor.</p>`,
+        timer:2000, showConfirmButton:false});
+      resetBtn();
+    })
+    .catch(err => {
+      Swal.fire('Error', 'Gagal mengambil data: ' + err.message, 'error');
+      resetBtn();
+    });
+  }
+</script>
+</body>
+</html>

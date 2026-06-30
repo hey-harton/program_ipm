@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Admin — IPM Predictor Jatim</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --bg-base   : #f0f2f5;
+      --sidebar-bg: #0f172a;
+      --sidebar-w : 256px;
+      --header-h  : 60px;
+      --accent    : #3b82f6;
+      --accent-dim: #1d4ed8;
+    }
+
+    * { box-sizing: border-box; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-base); }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--sidebar-bg);
+      position: fixed; top: 0; left: 0; z-index: 40;
+      display: flex; flex-direction: column;
+      transition: transform 0.3s ease;
+    }
+    #sidebar.hidden-mobile { transform: translateX(-100%); }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px; border-radius: 8px;
+      color: #94a3b8; font-size: 13.5px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s ease;
+      text-decoration: none; margin: 2px 12px;
+    }
+    .nav-item:hover  { background: #1e293b; color: #e2e8f0; }
+    .nav-item.active { background: #1e3a5f; color: #60a5fa; }
+    .nav-item .icon  { width: 18px; text-align: center; flex-shrink: 0; }
+
+    /* ── Main layout ── */
+    #main {
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      transition: margin-left 0.3s ease;
+    }
+
+    /* ── Top header ── */
+    #topbar {
+      height: var(--header-h);
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px;
+      position: sticky; top: 0; z-index: 30;
+    }
+
+    /* ── Metric cards ── */
+    .metric-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 20px 22px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.07); }
+    .metric-val { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
+    .metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; }
+    .metric-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+
+    /* ── Table ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th {
+      text-align: left; padding: 10px 14px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #64748b;
+      background: #f8fafc; border-bottom: 2px solid #e2e8f0;
+    }
+    .data-table td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+    .data-table tbody tr:hover { background: #f8fafc; }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+
+    /* ── Kategori pill ── */
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+    .pill-sangat-tinggi { background: #dcfce7; color: #16a34a; }
+    .pill-tinggi        { background: #dbeafe; color: #1d4ed8; }
+    .pill-sedang        { background: #fef9c3; color: #ca8a04; }
+    .pill-rendah        { background: #fee2e2; color: #dc2626; }
+
+    /* ── Section card ── */
+    .section-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: 16px 22px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .section-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+
+    /* ── Overlay mobile ── */
+    #overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 39;
+    }
+    #overlay.show { display: block; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.open { transform: translateX(0); }
+      #main { margin-left: 0; }
+    }
+
+    /* ── Fade in animation ── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp 0.4s ease forwards; }
+    .fade-up-d1 { animation-delay: 0.05s; opacity: 0; }
+    .fade-up-d2 { animation-delay: 0.10s; opacity: 0; }
+    .fade-up-d3 { animation-delay: 0.15s; opacity: 0; }
+    .fade-up-d4 { animation-delay: 0.20s; opacity: 0; }
+
+    /* ── Empty state ── */
+    .empty-state { text-align: center; padding: 48px 24px; color: #94a3b8; }
+    .empty-state svg { width: 48px; height: 48px; margin: 0 auto 12px; display: block; opacity: 0.4; }
+  </style>
+</head>
+
+<body>
+
+<!-- ══════════════════ OVERLAY (mobile) ═════════════════════ -->
+<div id="overlay" onclick="closeSidebar()"></div>
+
+<!-- ══════════════════ SIDEBAR ══════════════════════════════ -->
+<aside id="sidebar">
+
+  <!-- Logo -->
+  <div class="flex items-center gap-3 px-5 py-5 border-b border-slate-700/50">
+    <img src="{{ url_for('static', filename='Tajuk.png') }}"
+         alt="Logo" class="h-10 w-auto object-contain flex-shrink-0"
+         onerror="this.style.display='none'">
+    <div>
+      <p class="text-white font-bold text-sm leading-tight">IPM Predictor</p>
+      <p class="text-slate-400 text-xs">Jawa Timur</p>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="flex-1 py-4 overflow-y-auto">
+    <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-8 mb-2 mt-2">Menu Utama</p>
+
+    <a href="{{ url_for('dashboard') }}" class="nav-item active">
+      <span class="icon">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      </span>
+      Dashboard
+    </a>
+
+    <a href="{{ url_for('data_indikator') }}" class="nav-item">
+      <span class="icon">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </span>
+      Manajemen Data Indikator
+    </a>
+
+    <a href="{{ url_for('konfigurasi') }}" class="nav-item">
+      <span class="icon">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </span>
+      Konfigurasi Parameter
+    </a>
+
+    <a href="{{ url_for('retraining') }}" class="nav-item">
+      <span class="icon">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </span>
+      Retraining Model
+    </a>
+  </nav>
+
+  <!-- User info bottom -->
+  <div class="p-4 border-t border-slate-700/50">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+        <span class="text-white text-xs font-bold">{{ nama_admin[0]|upper }}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-white text-xs font-semibold truncate">{{ nama_admin }}</p>
+        <p class="text-slate-400 text-[10px]">Administrator</p>
+      </div>
+      <a href="{{ url_for('logout') }}" title="Logout"
+         class="text-slate-400 hover:text-red-400 transition-colors flex-shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+      </a>
+    </div>
+  </div>
+</aside>
+
+
+<!-- ══════════════════ MAIN ══════════════════════════════════ -->
+<div id="main">
+
+  <!-- ── Top Bar ── -->
+  <header id="topbar">
+    <!-- Hamburger (mobile) -->
+    <button onclick="openSidebar()" class="md:hidden p-1.5 rounded-md text-slate-500 hover:bg-slate-100">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm">
+      <span class="text-slate-400 hidden md:block">Admin</span>
+      <span class="text-slate-300 hidden md:block">/</span>
+      <span class="text-slate-700 font-semibold">Dashboard</span>
+    </div>
+
+    <!-- Right: logout button -->
+    <a href="{{ url_for('logout') }}"
+       class="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-500 font-medium transition-colors px-3 py-1.5 rounded-lg border border-slate-200 hover:border-red-200">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+      </svg>
+      Logout
+    </a>
+  </header>
+
+  <!-- ── Page Content ── -->
+  <main class="flex-1 p-5 md:p-8 space-y-6">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="space-y-2">
+          {% for category, message in messages %}
+            <div class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
+              {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200
+              {% elif category == 'success' %}bg-green-50 text-green-700 border border-green-200
+              {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Page title -->
+    <div class="fade-up">
+      <h1 class="text-xl font-bold text-slate-800">Dashboard Admin</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Ringkasan performa model GRU dan riwayat prediksi IPM Jawa Timur</p>
+    </div>
+
+    <!-- ── Shortcut nav cards ── -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 fade-up fade-up-d1">
+      <a href="{{ url_for('data_indikator') }}"
+         class="section-card p-4 flex items-center gap-4 hover:border-blue-300 transition-colors group cursor-pointer">
+        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs font-bold text-slate-700">Manajemen Data</p>
+          <p class="text-[11px] text-slate-400">Kelola Indikator IPM</p>
+        </div>
+      </a>
+
+      <a href="{{ url_for('konfigurasi') }}"
+         class="section-card p-4 flex items-center gap-4 hover:border-violet-300 transition-colors group cursor-pointer">
+        <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs font-bold text-slate-700">Konfigurasi</p>
+          <p class="text-[11px] text-slate-400">Parameter Klasifikasi</p>
+        </div>
+      </a>
+
+      <a href="{{ url_for('retraining') }}"
+         class="section-card p-4 flex items-center gap-4 hover:border-emerald-300 transition-colors group cursor-pointer">
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs font-bold text-slate-700">Retraining Model</p>
+          <p class="text-[11px] text-slate-400">Upload dataset baru</p>
+        </div>
+      </a>
+    </div>
+
+    <!-- ── Model Aktif: Metric Cards ── -->
+    <div class="fade-up fade-up-d2">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-sm font-bold text-slate-700">Model GRU Aktif Saat Ini</h2>
+          <p class="text-[11px] text-slate-400 mt-0.5">
+            Dilatih: <span class="font-mono">{{ stats.tgl_latih }}</span>
+            &nbsp;·&nbsp;
+            <span class="{% if stats.sumber == 'database' %}text-emerald-600{% elif stats.sumber == 'metadata_json' %}text-blue-600{% else %}text-amber-600{% endif %} font-semibold">
+              {% if stats.sumber == 'database' %}● DB Live{% elif stats.sumber == 'metadata_json' %}● JSON Metadata{% else %}● Nilai Default{% endif %}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- MAPE -->
+        <div class="metric-card">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="metric-label">MAPE</p>
+              <p class="metric-val text-blue-600">{{ stats.mape }}%</p>
+            </div>
+            <span class="metric-badge bg-blue-50 text-blue-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+              Akurasi
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Mean Absolute Percentage Error (Testing)</p>
+        </div>
+
+        <!-- RMSE -->
+        <div class="metric-card">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="metric-label">RMSE</p>
+              <p class="metric-val text-violet-600">{{ stats.rmse }}</p>
+            </div>
+            <span class="metric-badge bg-violet-50 text-violet-600">Scaled</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Root Mean Squared Error (skala 0–1)</p>
+        </div>
+
+        <!-- MAE -->
+        <div class="metric-card">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="metric-label">MAE</p>
+              <p class="metric-val text-emerald-600">{{ stats.mae }}</p>
+            </div>
+            <span class="metric-badge bg-emerald-50 text-emerald-600">Scaled</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Mean Absolute Error (skala 0–1)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Visualisasi Model ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 fade-up fade-up-d3">
+
+      <!-- Training Loss Curve -->
+      <div class="section-card">
+        <div class="section-header">
+          <p class="section-title">📈 Training vs Validation Loss</p>
+          <span class="text-[11px] text-slate-400 font-mono">BiGRU · 200 epoch</span>
+        </div>
+        <div class="p-4">
+          <img src="{{ url_for('static', filename='training_loss_lr_curve.png') }}"
+               alt="Training Loss Curve"
+               class="w-full rounded-lg object-contain max-h-64"
+               onerror="this.parentElement.innerHTML='<div class=\'empty-state\'><svg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z\'/></svg><p>Grafik belum tersedia</p><p class=\'text-xs mt-1\'>Pastikan training_loss_lr_curve.png ada di folder static/</p></div>'">
+        </div>
+      </div>
+
+      <!-- Evaluasi Prediksi -->
+      <div class="section-card">
+        <div class="section-header">
+          <p class="section-title">🎯 Evaluasi Prediksi Model</p>
+          <span class="text-[11px] text-slate-400 font-mono">Test set · 38 wilayah</span>
+        </div>
+        <div class="p-4">
+          <img src="{{ url_for('static', filename='evaluasi_prediksi.png') }}"
+               alt="Evaluasi Prediksi"
+               class="w-full rounded-lg object-contain max-h-64"
+               onerror="this.parentElement.innerHTML='<div class=\'empty-state\'><svg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'currentColor\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z\'/></svg><p>Grafik belum tersedia</p><p class=\'text-xs mt-1\'>Pastikan evaluasi_prediksi.png ada di folder static/</p></div>'">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Tabel Riwayat Prediksi ── -->
+    <div class="section-card fade-up fade-up-d4">
+      <div class="section-header">
+        <p class="section-title">📋 Riwayat Uji Coba Prediksi</p>
+        <span class="text-[11px] text-slate-400">{{ riwayat|length }} data terbaru</span>
+      </div>
+
+      {% if riwayat %}
+      <!-- Desktop table -->
+      <div class="overflow-x-auto hidden md:block">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Kabupaten/Kota</th>
+              <th>AHH</th>
+              <th>HLS</th>
+              <th>RLS</th>
+              <th>Pengeluaran (Rp)</th>
+              <th>IPM</th>
+              <th>Klasifikasi</th>
+              <th>Tahun</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in riwayat %}
+            <tr>
+              <td class="font-medium text-slate-800">{{ row.nama_wilayah }}</td>
+              <td class="font-mono text-slate-600">{{ '%.2f'|format(row.ahh) if row.ahh else '—' }}</td>
+              <td class="font-mono text-slate-600">{{ '%.2f'|format(row.hls) if row.hls else '—' }}</td>
+              <td class="font-mono text-slate-600">{{ '%.2f'|format(row.rls) if row.rls else '—' }}</td>
+              <td class="font-mono text-slate-600">{{ '{:,.0f}'.format(row.pengeluaran) if row.pengeluaran else '—' }}</td>
+              <td class="font-mono font-semibold text-slate-800">{{ '%.2f'|format(row.ipm) if row.ipm else '—' }}</td>
+              <td>
+                {% set kat = row.klasifikasi|lower if row.klasifikasi else '' %}
+                <span class="pill
+                  {% if 'sangat' in kat %}pill-sangat-tinggi
+                  {% elif 'tinggi' in kat %}pill-tinggi
+                  {% elif 'sedang' in kat %}pill-sedang
+                  {% else %}pill-rendah{% endif %}">
+                  {{ row.klasifikasi or '—' }}
+                </span>
+              </td>
+              <td class="font-mono text-slate-500">{{ row.tahun_prediksi or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile cards -->
+      <div class="md:hidden divide-y divide-slate-100">
+        {% for row in riwayat %}
+        <div class="p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-sm text-slate-800">{{ row.nama_wilayah }}</p>
+            {% set kat = row.klasifikasi|lower if row.klasifikasi else '' %}
+            <span class="pill
+              {% if 'sangat' in kat %}pill-sangat-tinggi
+              {% elif 'tinggi' in kat %}pill-tinggi
+              {% elif 'sedang' in kat %}pill-sedang
+              {% else %}pill-rendah{% endif %}">
+              {{ row.klasifikasi or '—' }}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-1 text-xs text-slate-500">
+            <span>AHH: <b class="text-slate-700">{{ '%.2f'|format(row.ahh) if row.ahh else '—' }}</b></span>
+            <span>HLS: <b class="text-slate-700">{{ '%.2f'|format(row.hls) if row.hls else '—' }}</b></span>
+            <span>RLS: <b class="text-slate-700">{{ '%.2f'|format(row.rls) if row.rls else '—' }}</b></span>
+            <span>IPM: <b class="text-slate-800 font-semibold">{{ '%.2f'|format(row.ipm) if row.ipm else '—' }}</b></span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% else %}
+      <!-- Empty state -->
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="font-semibold text-sm">Belum ada data prediksi</p>
+        <p class="text-xs mt-1">Lakukan simulasi prediksi terlebih dahulu melalui halaman Retraining Model.</p>
+        <a href="{{ url_for('retraining') }}"
+           class="inline-block mt-4 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+          Mulai Retraining →
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Footer ── -->
+    <p class="text-center text-xs text-slate-400 pb-4">
+      Sistem Prediksi IPM Provinsi Jawa Timur · Model GRU (Bidirectional)
+    </p>
+
+  </main>
+</div>
+
+
+<!-- ── JavaScript ── -->
+<script>
+  function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('overlay').classList.add('show');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('overlay').classList.remove('show');
+  }
+
+  // Tutup sidebar saat klik di luar (mobile)
+  window.addEventListener('resize', () => {
+    if (window.innerWidth >= 768) closeSidebar();
+  });
+</script>
+
+</body>
+</html>

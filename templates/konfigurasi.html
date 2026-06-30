@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Konfigurasi Parameter — IPM Predictor Jatim</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans:['IBM Plex Sans','sans-serif'], mono:['IBM Plex Mono','monospace'] } } }
+    }
+  </script>
+
+  <style>
+    *{box-sizing:border-box;}
+    body{font-family:'IBM Plex Sans',sans-serif;background-color:#f1f5f9;
+      background-image:linear-gradient(rgba(148,163,184,.13) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(148,163,184,.13) 1px,transparent 1px);
+      background-size:40px 40px;min-height:100vh;display:flex;flex-direction:column;}
+
+    #site-header{background-color:#1e293b;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.25);}
+    .profile-avatar{width:28px;height:28px;border-radius:50%;background:#2563eb;border:1.5px solid rgba(96,165,250,.5);
+      display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+    .profile-name{font-size:12px;font-weight:600;color:#e2e8f0;}
+    .profile-role{font-size:10px;color:#64748b;font-family:'IBM Plex Mono',monospace;}
+    .btn-logout{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#cbd5e1;
+      background:transparent;border:1px solid #475569;border-radius:6px;padding:6px 12px;transition:all .2s;text-decoration:none;}
+    .btn-logout:hover{background:#334155;color:#f1f5f9;border-color:#64748b;}
+
+    #breadcrumb-bar{background:#fff;border-top:3px solid #f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 2px 6px rgba(0,0,0,.04);}
+    .bc-item{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:#64748b;
+      padding:10px 8px 10px 0;text-decoration:none;transition:color .15s;}
+    .bc-item:hover{color:#3b82f6;}
+    .bc-sep{color:#cbd5e1;font-size:14px;user-select:none;padding:0 2px;}
+    .bc-current{font-size:12.5px;font-weight:600;color:#0f172a;display:inline-flex;align-items:center;gap:5px;padding:10px 0;}
+
+    .section-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;}
+    .section-header{padding:16px 22px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;}
+    .section-title{font-size:14px;font-weight:700;color:#0f172a;}
+
+    #site-footer{background:#1e293b;color:#64748b;font-size:11px;font-family:'IBM Plex Mono',monospace;
+      padding:14px 24px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;text-align:center;margin-top:auto;}
+    #site-footer .sep{color:#334155;}
+
+    /* ── Parameter Table ── */
+    .param-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:center;
+      padding:10px 0;border-bottom:1px solid #f1f5f9;}
+    .param-row:last-child{border-bottom:none;}
+    .param-input{border:1px solid #e2e8f0;border-radius:8px;padding:7px 11px;font-size:13px;
+      color:#334155;background:#f8fafc;width:100%;font-family:'IBM Plex Mono',monospace;transition:border-color .15s;}
+    .param-input:focus{outline:none;border-color:#94a3b8;background:#fff;}
+    .param-input:read-only{background:#f1f5f9;color:#94a3b8;cursor:not-allowed;}
+    .param-input.editing{background:#fff;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1);}
+
+    .btn-icon{width:30px;height:30px;border-radius:7px;border:none;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+    .btn-edit{background:#f1f5f9;color:#475569;}
+    .btn-edit:hover{background:#e2e8f0;}
+    .btn-save{background:#dcfce7;color:#16a34a;}
+    .btn-save:hover{background:#bbf7d0;}
+    .btn-cancel{background:#fee2e2;color:#dc2626;}
+    .btn-cancel:hover{background:#fecaca;}
+    .btn-delete{background:#fff1f2;color:#e11d48;}
+    .btn-delete:hover{background:#ffe4e6;}
+
+    /* ── Kategori pill ── */
+    .kat-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;}
+    .kat-sangat-tinggi{background:#dcfce7;color:#16a34a;}
+    .kat-tinggi{background:#dbeafe;color:#1d4ed8;}
+    .kat-sedang{background:#fef9c3;color:#ca8a04;}
+    .kat-rendah{background:#fee2e2;color:#dc2626;}
+    .kat-custom{background:#f3e8ff;color:#7c3aed;}
+
+    /* ── Range visual ── */
+    .range-bar-wrap{background:#f1f5f9;border-radius:8px;height:8px;position:relative;overflow:visible;margin:6px 0;}
+    .range-bar-fill{position:absolute;height:100%;border-radius:8px;top:0;}
+
+    /* ── Warning banner ── */
+    .warn-banner{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:12px;padding:14px 18px;}
+
+    /* ── Impact info ── */
+    .impact-card{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;}
+
+    /* ── Tambah param form ── */
+    .add-form{background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:18px 20px;
+      display:none;margin-top:12px;}
+    .add-form.open{display:block;}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end;}
+    .form-label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:5px;}
+    .form-input{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;
+      color:#334155;background:#fff;font-family:'IBM Plex Sans',sans-serif;transition:border-color .15s;}
+    .form-input:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1);}
+
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;
+      font-size:12px;font-weight:600;cursor:pointer;border:none;text-decoration:none;transition:all .15s;}
+    .btn-primary{background:#1e3a5f;color:#fff;}
+    .btn-primary:hover{background:#1e40af;}
+    .btn-success{background:#16a34a;color:#fff;}
+    .btn-success:hover{background:#15803d;}
+    .btn-light{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}
+    .btn-light:hover{background:#e2e8f0;}
+    .btn-warning{background:#d97706;color:#fff;}
+    .btn-warning:hover{background:#b45309;}
+
+    /* ── Overlap error ── */
+    .overlap-msg{font-size:11px;color:#dc2626;margin-top:4px;display:none;}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    .fade-up{animation:fadeUp .35s ease forwards;}
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header id="site-header">
+  <div class="px-5 md:px-8 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="{{ url_for('static', filename='Tajuk.png') }}" alt="Logo"
+           class="h-10 w-auto object-contain" onerror="this.style.display='none'">
+      <span class="font-semibold text-sm tracking-wide text-slate-100">IPM Predictor Jawa Timur</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="profile-avatar">{{ nama_admin[0]|upper }}</div>
+        <div class="hidden sm:block">
+          <p class="profile-name">{{ nama_admin }}</p>
+          <p class="profile-role">Administrator</p>
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="btn-logout">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Logout
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ══ BREADCRUMB ══════════════════════════════════════════════════════════ -->
+<div id="breadcrumb-bar">
+  <div class="px-5 md:px-8 flex items-center gap-1">
+    <a href="{{ url_for('dashboard') }}" class="bc-item">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      Dashboard
+    </a>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 4a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+      </svg>
+      Konfigurasi Parameter
+    </span>
+  </div>
+</div>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════════════════════ -->
+<main class="flex-1 px-4 md:px-8 py-6 w-full">
+
+  <!-- ── Warning Banner ─────────────────────────────────────────── -->
+  <div class="warn-banner mb-5 fade-up">
+    <div class="flex items-start gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      <div>
+        <p class="text-sm font-bold text-amber-900">Perubahan Parameter Berdampak Sistem-Wide</p>
+        <p class="text-xs text-amber-800 mt-0.5">Perubahan klasifikasi IPM akan mempengaruhi seluruh tampilan kategori di <strong>Riwayat Prediksi</strong>, <strong>Detail Prediksi</strong>, <strong>Retraining Model</strong>, dan <strong>Dashboard</strong>. Pastikan parameter mengacu pada data BPS Provinsi Jawa Timur.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Three-column layout ───────────────────────────────────────── -->
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+    <!-- ▌ KOLOM 1 — Tabel Parameter ▌ -->
+    <div class="lg:col-span-3 space-y-4">
+
+      <div class="section-card fade-up">
+        <div class="section-header">
+          <div>
+            <p class="section-title">⚙️ Klasifikasi Kategori IPM</p>
+            <p class="text-xs text-slate-400 mt-0.5">Perubahan pada halaman ini hanya diperbolehkan apabila data yang dimasukkan valid dan mengacu pada data BPS Provinsi Jawa Timur</p>
+          </div>
+        </div>
+
+        <div class="px-6 py-4">
+          <!-- Header Row — sejajar dengan kolom input -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 80px;gap:10px;padding:0 0 6px 0;border-bottom:1px solid #f1f5f9;margin-bottom:4px;">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Batas Bawah</p>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Batas Atas</p>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Jenis Klasifikasi</p>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400 text-right">Aksi</p>
+          </div>
+
+          <!-- Parameter Rows -->
+          <div id="param-list">
+            {% for p in params %}
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 80px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f8fafc;"
+                 id="row-{{ p.id_parameter }}" data-id="{{ p.id_parameter }}">
+              <input type="number" step="0.01" class="param-input" id="bb-{{ p.id_parameter }}"
+                     value="{{ p.ambang_bawah }}" readonly
+                     oninput="updateBpsPreview()">
+              <input type="number" step="0.01" class="param-input" id="ba-{{ p.id_parameter }}"
+                     value="{{ p.ambang_atas }}" readonly
+                     oninput="updateBpsPreview()">
+              <input type="text" class="param-input" id="kat-{{ p.id_parameter }}"
+                     value="{{ p.kategori }}" readonly
+                     oninput="updateBpsPreview()">
+              <div class="flex items-center justify-end gap-1">
+                <button class="btn-icon btn-edit" id="btn-edit-{{ p.id_parameter }}"
+                        onclick="startEdit({{ p.id_parameter }})" title="Edit">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                </button>
+                <button class="btn-icon btn-save" id="btn-save-{{ p.id_parameter }}" style="display:none;"
+                        onclick="saveEdit({{ p.id_parameter }})" title="Simpan">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </button>
+                <button class="btn-icon btn-cancel" id="btn-cancel-{{ p.id_parameter }}" style="display:none;"
+                        onclick="cancelEdit({{ p.id_parameter }})" title="Batal">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+                <button class="btn-icon btn-delete" id="btn-del-{{ p.id_parameter }}"
+                        onclick="hapusParam({{ p.id_parameter }}, '{{ p.kategori }}')" title="Hapus">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            {% else %}
+            <p class="text-xs text-slate-400 italic py-4 text-center">Belum ada parameter. Tambahkan parameter klasifikasi IPM.</p>
+            {% endfor %}
+          </div>
+
+          <!-- Tombol Tambah Parameter — di bawah tabel -->
+          <div class="mt-4 pt-3 border-t border-slate-100">
+            <button onclick="toggleAddForm()" class="btn btn-primary" id="btn-tambah">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+              </svg>
+              Tambah Parameter
+            </button>
+          </div>
+
+          <!-- Add Form -->
+          <div class="add-form" id="add-form">
+            <p class="text-xs font-bold text-slate-600 mb-3 uppercase tracking-wide">Tambah Parameter Baru</p>
+            <div class="form-grid">
+              <div>
+                <label class="form-label">Batas Bawah</label>
+                <input type="number" step="0.01" class="form-input" id="new-bb" placeholder="cth: 60">
+              </div>
+              <div>
+                <label class="form-label">Batas Atas</label>
+                <input type="number" step="0.01" class="form-input" id="new-ba" placeholder="cth: 70">
+              </div>
+              <div>
+                <label class="form-label">Jenis Klasifikasi</label>
+                <input type="text" class="form-input" id="new-kat" placeholder="cth: Sedang">
+              </div>
+            </div>
+            <p class="overlap-msg" id="add-error"></p>
+            <div class="flex items-center gap-3 mt-4">
+              <button onclick="simpanTambah()" class="btn btn-success">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+                Simpan Parameter
+              </button>
+              <button onclick="toggleAddForm()" class="btn btn-light">Batal</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Re-apply Banner ─────────────────────────────────────── -->
+      <div class="section-card fade-up" id="reapply-banner" style="display:none;">
+        <div class="px-5 py-4 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-bold text-slate-800">Parameter telah diubah</p>
+              <p class="text-xs text-slate-500">Terapkan ulang kategori ke semua data prediksi agar konsisten dengan parameter baru.</p>
+            </div>
+          </div>
+          <button onclick="reapplyKategori()" class="btn btn-warning flex-shrink-0" id="btn-reapply">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Terapkan Ulang Kategori
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /left col -->
+
+    <!-- ▌ KOLOM 2 — Klasifikasi Real-time ▌ -->
+    <div class="lg:col-span-1">
+      <div class="section-card fade-up">
+        <div class="section-header">
+          <p class="section-title">📋 Klasifikasi Kategori</p>
+        </div>
+        <div class="p-4" id="bps-preview">
+          <p class="text-xs text-slate-400 italic text-center py-2">Memuat...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ▌ KOLOM 3 — Cakupan Penerapan ▌ -->
+    <div class="lg:col-span-1">
+      <div class="section-card fade-up">
+        <div class="section-header">
+          <p class="section-title">🎯 Cakupan Penerapan</p>
+        </div>
+        <div class="p-4 space-y-3">
+          <div class="impact-card">
+            <p class="text-xs font-bold text-blue-800 mb-2">Parameter ini berdampak pada:</p>
+            <div class="space-y-1.5">
+              <div class="flex items-center gap-2 text-xs text-blue-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                Kategori di Riwayat Prediksi
+              </div>
+              <div class="flex items-center gap-2 text-xs text-blue-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                Kategori di Detail Prediksi
+              </div>
+              <div class="flex items-center gap-2 text-xs text-blue-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                Tabel Hasil Model (Retraining)
+              </div>
+              <div class="flex items-center gap-2 text-xs text-blue-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                Distribusi Kategori di Dashboard
+              </div>
+              <div class="flex items-center gap-2 text-xs text-blue-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                Prediksi model retraining berikutnya
+              </div>
+            </div>
+          </div>
+          <div class="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p>Setelah mengubah parameter, klik <strong>"Terapkan Ulang Kategori"</strong> untuk memperbarui semua data yang sudah tersimpan.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<footer id="site-footer">
+  <span>© IPM Predictor Jawa Timur</span>
+  <span class="sep">·</span>
+  <span>Model GRU (Bidirectional)</span>
+  <span class="sep">·</span>
+  <span>Sumber Data: BPS Provinsi Jawa Timur</span>
+</footer>
+
+<script>
+  // ── BPS Preview Real-time ────────────────────────────────────────────
+  function getBadgeClass(kat) {
+    const k = (kat || '').toLowerCase();
+    if (k.includes('sangat')) return 'kat-sangat-tinggi';
+    if (k.includes('tinggi')) return 'kat-tinggi';
+    if (k.includes('sedang')) return 'kat-sedang';
+    if (k.includes('rendah')) return 'kat-rendah';
+    return 'kat-custom';
+  }
+
+  function updateBpsPreview() {
+    const rows = document.querySelectorAll('#param-list [id^="row-"]');
+    const preview = document.getElementById('bps-preview');
+    if (!rows.length) {
+      preview.innerHTML = '<p class="text-xs text-slate-400 italic text-center py-2">Belum ada parameter.</p>';
+      return;
+    }
+
+    // Kumpulkan data dari semua baris, sort by ambang_bawah
+    const items = [];
+    rows.forEach(row => {
+      const id = row.dataset.id;
+      const bb  = parseFloat(document.getElementById(`bb-${id}`)?.value);
+      const ba  = parseFloat(document.getElementById(`ba-${id}`)?.value);
+      const kat = document.getElementById(`kat-${id}`)?.value?.trim() || '';
+      if (!isNaN(bb) && !isNaN(ba) && kat) items.push({bb, ba, kat});
+    });
+    items.sort((a, b) => b.bb - a.bb); // tertinggi di atas
+
+    let html = '<div class="space-y-1">';
+    items.forEach((item, idx) => {
+      const isLast = idx === items.length - 1;
+      const badge  = getBadgeClass(item.kat);
+
+      // Label kondisi
+      let kondisi;
+      if (idx === 0) kondisi = `IPM ≥ ${item.bb}`;
+      else if (isLast) kondisi = `IPM < ${items[idx-1].bb}`;
+      else kondisi = `${item.bb} ≤ IPM < ${items[idx-1].bb}`;
+
+      html += `
+        <div class="flex items-center justify-between py-2 ${!isLast ? 'border-b border-slate-50' : ''}">
+          <div>
+            <p class="text-xs font-bold text-slate-700">${kondisi}</p>
+            <p class="text-xs text-slate-400 font-mono">${item.bb} – ${item.ba}</p>
+          </div>
+          <span class="kat-badge ${badge}">${item.kat}</span>
+        </div>`;
+    });
+    html += '</div><p class="text-xs text-slate-400 italic pt-2 mt-1 border-t border-slate-50">Diperbarui real-time dari tabel kiri</p>';
+    preview.innerHTML = html;
+  }
+
+  // Panggil saat halaman pertama load
+  document.addEventListener('DOMContentLoaded', updateBpsPreview);
+
+  // ── Track original values for cancel ────────────────────────────────
+  const originals = {};
+
+  {% for p in params %}
+  originals[{{ p.id_parameter }}] = {
+    bb:  {{ p.ambang_bawah }},
+    ba:  {{ p.ambang_atas }},
+    kat: '{{ p.kategori|e }}'
+  };
+  {% endfor %}
+
+  let paramChanged = false;
+
+  // ── Toggle Add Form ──────────────────────────────────────────────────
+  function toggleAddForm() {
+    const form = document.getElementById('add-form');
+    const btn  = document.getElementById('btn-tambah');
+    const open = form.classList.toggle('open');
+    btn.innerHTML = open
+      ? '<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg> Batal'
+      : '<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg> Tambah Parameter';
+    if (!open) { clearAddForm(); }
+  }
+
+  function clearAddForm() {
+    document.getElementById('new-bb').value = '';
+    document.getElementById('new-ba').value = '';
+    document.getElementById('new-kat').value = '';
+    document.getElementById('add-error').style.display = 'none';
+  }
+
+  // ── Start Edit ───────────────────────────────────────────────────────
+  function startEdit(id) {
+    ['bb','ba','kat'].forEach(f => {
+      const el = document.getElementById(`${f}-${id}`);
+      el.removeAttribute('readonly');
+      el.classList.add('editing');
+    });
+    document.getElementById(`btn-edit-${id}`).style.display  = 'none';
+    document.getElementById(`btn-del-${id}`).style.display   = 'none';
+    document.getElementById(`btn-save-${id}`).style.display  = 'inline-flex';
+    document.getElementById(`btn-cancel-${id}`).style.display = 'inline-flex';
+  }
+
+  // ── Cancel Edit ──────────────────────────────────────────────────────
+  function cancelEdit(id) {
+    const orig = originals[id];
+    document.getElementById(`bb-${id}`).value  = orig.bb;
+    document.getElementById(`ba-${id}`).value  = orig.ba;
+    document.getElementById(`kat-${id}`).value = orig.kat;
+    lockRow(id);
+  }
+
+  function lockRow(id) {
+    ['bb','ba','kat'].forEach(f => {
+      const el = document.getElementById(`${f}-${id}`);
+      el.setAttribute('readonly', true);
+      el.classList.remove('editing');
+    });
+    document.getElementById(`btn-edit-${id}`).style.display  = 'inline-flex';
+    document.getElementById(`btn-del-${id}`).style.display   = 'inline-flex';
+    document.getElementById(`btn-save-${id}`).style.display  = 'none';
+    document.getElementById(`btn-cancel-${id}`).style.display = 'none';
+    updateBpsPreview();
+  }
+
+  // ── Save Edit ────────────────────────────────────────────────────────
+  function saveEdit(id) {
+    const bb  = parseFloat(document.getElementById(`bb-${id}`).value);
+    const ba  = parseFloat(document.getElementById(`ba-${id}`).value);
+    const kat = document.getElementById(`kat-${id}`).value.trim();
+
+    if (isNaN(bb) || isNaN(ba) || !kat) {
+      Swal.fire('Validasi', 'Semua field harus diisi.', 'warning'); return;
+    }
+    if (bb >= ba) {
+      Swal.fire('Validasi', 'Batas bawah harus lebih kecil dari batas atas.', 'warning'); return;
+    }
+    if (bb < 0 || ba > 200) {
+      Swal.fire('Validasi', 'Nilai rentang tidak realistis (0–200).', 'warning'); return;
+    }
+
+    fetch(`/api/parameter/edit/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ambang_bawah: bb, ambang_atas: ba, kategori: kat})
+    }).then(r => r.json()).then(d => {
+      if (d.ok) {
+        originals[id] = {bb, ba, kat};
+        lockRow(id);
+        paramChanged = true;
+        showReapplyBanner();
+        Swal.fire({icon:'success', title:'Parameter diperbarui!', timer:1200, showConfirmButton:false});
+      } else {
+        Swal.fire('Gagal', d.msg, 'error');
+      }
+    }).catch(() => Swal.fire('Error', 'Gagal menghubungi server.', 'error'));
+  }
+
+  // ── Tambah Parameter ─────────────────────────────────────────────────
+  function simpanTambah() {
+    const bb  = parseFloat(document.getElementById('new-bb').value);
+    const ba  = parseFloat(document.getElementById('new-ba').value);
+    const kat = document.getElementById('new-kat').value.trim();
+    const errEl = document.getElementById('add-error');
+
+    if (isNaN(bb) || isNaN(ba) || !kat) {
+      errEl.textContent = 'Semua field harus diisi.'; errEl.style.display='block'; return;
+    }
+    if (bb >= ba) {
+      errEl.textContent = 'Batas bawah harus lebih kecil dari batas atas.'; errEl.style.display='block'; return;
+    }
+    if (bb < 0 || ba > 200) {
+      errEl.textContent = 'Nilai rentang tidak realistis (0–200).'; errEl.style.display='block'; return;
+    }
+    errEl.style.display = 'none';
+
+    fetch('/api/parameter/tambah', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ambang_bawah: bb, ambang_atas: ba, kategori: kat})
+    }).then(r => r.json()).then(d => {
+      if (d.ok) {
+        paramChanged = true;
+        Swal.fire({icon:'success', title:'Parameter ditambahkan!', timer:1200, showConfirmButton:false});
+        setTimeout(() => location.reload(), 1300);
+      } else {
+        errEl.textContent = d.msg; errEl.style.display='block';
+      }
+    }).catch(() => { errEl.textContent = 'Gagal menghubungi server.'; errEl.style.display='block'; });
+  }
+
+  // ── Hapus Parameter ──────────────────────────────────────────────────
+  function hapusParam(id, nama) {
+    Swal.fire({
+      title: `Hapus "${nama}"?`,
+      html: `<p class="text-sm text-slate-600">Parameter ini akan dihapus dari sistem.</p>
+             <p class="text-xs text-amber-600 mt-2 font-medium">⚠️ Kategori data yang menggunakan rentang ini mungkin tidak sesuai setelahnya.</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Hapus',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#dc2626',
+    }).then(res => {
+      if (!res.isConfirmed) return;
+      fetch(`/api/parameter/hapus/${id}`, {method:'DELETE'})
+      .then(r => r.json()).then(d => {
+        if (d.ok) {
+          paramChanged = true;
+          Swal.fire({icon:'success', title:'Dihapus!', timer:1200, showConfirmButton:false});
+          setTimeout(() => location.reload(), 1300);
+        } else {
+          Swal.fire('Gagal', d.msg, 'error');
+        }
+      });
+    });
+  }
+
+  // ── Re-apply Kategori ────────────────────────────────────────────────
+  function showReapplyBanner() {
+    document.getElementById('reapply-banner').style.display = 'block';
+  }
+
+  function reapplyKategori() {
+    const btn = document.getElementById('btn-reapply');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Memperbarui...';
+
+    fetch('/api/parameter/reapply', {method:'POST'})
+    .then(r => r.json()).then(d => {
+      if (d.ok) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Kategori Diperbarui!',
+          html: `<p class="text-sm">${d.updated_simulasi} data simulasi &amp; ${d.updated_model} data model berhasil diperbarui.</p>`,
+          confirmButtonText: 'OK',
+        }).then(() => {
+          document.getElementById('reapply-banner').style.display = 'none';
+          paramChanged = false;
+        });
+      } else {
+        Swal.fire('Gagal', d.msg, 'error');
+      }
+      btn.disabled = false;
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Terapkan Ulang Kategori';
+    }).catch(() => {
+      Swal.fire('Error', 'Gagal menghubungi server.', 'error');
+      btn.disabled = false;
+    });
+  }
+</script>
+</body>
+</html>

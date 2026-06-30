@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Detail Prediksi — {{ prediksi.nama_wilayah }} {{ prediksi.tahun_prediksi }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['IBM Plex Sans','sans-serif'],mono:['IBM Plex Mono','monospace']}}}}</script>
+  <style>
+    *{box-sizing:border-box;}
+    body{font-family:'IBM Plex Sans',sans-serif;
+      background-color:#f1f5f9;
+      background-image:linear-gradient(rgba(148,163,184,.13) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(148,163,184,.13) 1px,transparent 1px);
+      background-size:40px 40px;
+      min-height:100vh;display:flex;flex-direction:column;color:#0f172a;}
+
+    /* ── ADMIN HEADER ── */
+    #site-header{background:#1e293b;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.25);}
+    .profile-avatar{width:28px;height:28px;border-radius:50%;background:#2563eb;border:1.5px solid rgba(96,165,250,.5);
+      display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+    .profile-name{font-size:12px;font-weight:600;color:#e2e8f0;}
+    .profile-role{font-size:10px;color:#64748b;font-family:'IBM Plex Mono';}
+    .btn-logout{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;
+      color:#cbd5e1;background:transparent;border:1px solid #475569;border-radius:6px;padding:6px 12px;transition:all .2s;text-decoration:none;}
+    .btn-logout:hover{background:#334155;color:#f1f5f9;}
+    #breadcrumb-bar{background:#fff;border-bottom:1px solid #e2e8f0;box-shadow:0 2px 6px rgba(0,0,0,.04);}
+    .bc-item{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:#64748b;padding:10px 8px 10px 0;text-decoration:none;transition:color .15s;}
+    .bc-item:hover{color:#3b82f6;}
+    .bc-sep{color:#cbd5e1;font-size:14px;padding:0 2px;}
+    .bc-current{font-size:12.5px;font-weight:600;color:#0f172a;display:inline-flex;align-items:center;gap:5px;padding:10px 0;}
+
+    /* ── ACTION BAR ── */
+    .action-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px 32px;}
+    .btn-back{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
+      color:#475569;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:8px 16px;text-decoration:none;transition:all .2s;}
+    .btn-back:hover{background:#f1f5f9;}
+    .btn-cetak{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;
+      background:#1e293b;color:#fff;border:none;border-radius:9px;padding:9px 20px;cursor:pointer;transition:all .2s;}
+    .btn-cetak:hover{background:#0f172a;}
+
+    /* ── INFOGRAFIS CARD ── */
+    .infografis{background:#fff;border:1px solid #d1d5db;border-radius:12px;
+      max-width:900px;margin:0 auto;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.08);}
+
+    /* ── HEADER INFOGRAFIS ── */
+    .info-header{padding:28px 36px 22px;text-align:center;border-bottom:3px solid #e5e7eb;position:relative;}
+    .info-header h1{font-size:18px;font-weight:800;color:#0f172a;letter-spacing:.02em;line-height:1.3;}
+    .info-header .tahun{color:#d97706;}
+    .info-header .wilayah{color:#d97706;}
+    .info-logo{position:absolute;right:32px;top:50%;transform:translateY(-50%);width:90px;height:90px;object-fit:contain;}
+
+    /* ── SECTION DALAM INFOGRAFIS ── */
+    .info-section{border:1px solid #d1d5db;border-radius:8px;margin:16px;overflow:hidden;}
+    .info-section-header{background:#f9fafb;border-bottom:1px solid #d1d5db;padding:10px 16px;}
+    .info-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#374151;}
+    .info-section-body{padding:16px;}
+
+    /* ── PROFIL DAERAH ── */
+    .profil-grid{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:stretch;}
+    .landmark-img{width:220px;height:100%;min-height:200px;max-height:260px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;}
+    .profil-desc{font-size:12px;color:#374151;line-height:1.65;}
+
+    /* ── PREDIKSI IPM ── */
+    .prediksi-grid{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;}
+    .prediksi-tbl{width:100%;border-collapse:collapse;font-size:11.5px;}
+    .prediksi-tbl th{padding:8px 10px;background:#f3f4f6;border:1px solid #d1d5db;font-size:10px;font-weight:700;text-align:center;color:#6b7280;}
+    .prediksi-tbl td{padding:8px 10px;border:1px solid #d1d5db;text-align:center;color:#374151;font-family:'IBM Plex Mono',monospace;}
+    .prediksi-tbl td:first-child{text-align:left;font-weight:700;}
+    .chart-wrap{width:280px;flex-shrink:0;}
+    .chart-wrap canvas{width:100%!important;}
+
+    /* ── NILAI & KLASIFIKASI ── */
+    .nilai-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:14px 16px;border-top:1px solid #e5e7eb;}
+    .nilai-box{text-align:center;}
+    .nilai-label{font-size:10px;color:#6b7280;margin-bottom:4px;}
+    .nilai-val{border:1.5px solid #d1d5db;border-radius:6px;padding:10px 16px;font-size:14px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#0f172a;min-height:36px;display:flex;align-items:center;justify-content:center;}
+    .nilai-val.ipm{color:#1d4ed8;font-size:20px;}
+    .nilai-val.kat{color:#16a34a;}
+    .error-info{display:flex;align-items:center;gap:28px;}
+    .error-item{text-align:center;}
+    .error-num{font-size:18px;font-weight:800;font-family:'IBM Plex Mono';color:#0f172a;}
+    .error-label{font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:.07em;}
+
+    /* ── RIWAYAT IPM ── */
+    .riwayat-wrap{padding:0 16px 16px;}
+    .riwayat-title{font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;}
+    .riwayat-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+    .riwayat-tbl th{padding:8px 10px;background:#f3f4f6;border:1px solid #d1d5db;font-size:9px;font-weight:700;text-align:center;color:#6b7280;text-transform:uppercase;}
+    .riwayat-tbl td{padding:7px 10px;border:1px solid #e5e7eb;text-align:center;color:#374151;font-family:'IBM Plex Mono',monospace;font-size:10.5px;}
+    .riwayat-tbl td:first-child{text-align:left;font-weight:600;font-family:'IBM Plex Sans',sans-serif;}
+    .riwayat-tbl tr:nth-child(even) td{background:#fafafa;}
+
+    /* ── TREND CHIP ── */
+    .t-up{color:#16a34a;font-weight:700;}
+    .t-down{color:#dc2626;font-weight:700;}
+
+    /* ── FOOTER INFOGRAFIS ── */
+    footer{background:#1e293b;color:#64748b;font-size:11px;font-family:'IBM Plex Mono';
+      padding:16px 24px;display:flex;justify-content:center;gap:16px;flex-wrap:wrap;
+      text-align:center;margin-top:auto;border-top:1px solid #0f172a;}
+    footer .sep{color:#334155;}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    .fade-up{animation:fadeUp .4s ease forwards;}
+
+    /* ── PRINT ── */
+    @media print {
+      body{background:white!important;background-image:none!important;}
+      .no-print{display:none!important;}
+      #site-header{display:none!important;}
+      #breadcrumb-bar{display:none!important;}
+      nav.publik-nav{display:none!important;}
+      footer{display:none!important;}
+      .infografis{box-shadow:none!important;border:none!important;max-width:100%!important;}
+      .action-bar{display:none!important;}
+      @page{margin:10mm;}
+    }
+  </style>
+</head>
+<body>
+
+{% if is_publik %}
+<!-- ══ NAVBAR PUBLIK — logo + nama saja ════════════════════════════ -->
+<nav class="publik-nav" style="background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:50;box-shadow:0 1px 8px rgba(0,0,0,.06);">
+  <div style="padding:0 1.5rem;height:60px;display:flex;align-items:center;">
+    <img src="{{ url_for('static', filename='Tajuk.png') }}" alt="Logo" style="height:30px;object-fit:contain;margin-right:10px;" onerror="this.style.display='none'">
+    <span style="font-size:14px;font-weight:700;color:#0f172a;">IPM Predictor Jawa Timur</span>
+  </div>
+</nav>
+{% else %}
+<!-- ══ HEADER ADMIN — logo + nama saja ═════════════════════════════ -->
+<header id="site-header">
+  <div class="px-4 md:px-8 py-3 flex items-center">
+    <img src="{{ url_for('static', filename='Tajuk.png') }}" alt="Logo" class="h-9 w-auto object-contain mr-3" onerror="this.style.display='none'">
+    <span class="font-semibold text-sm text-slate-100">IPM Predictor Jawa Timur</span>
+  </div>
+</header>
+{% endif %}
+
+<!-- ══ ACTION BAR ═══════════════════════════════════════════════════ -->
+<div class="no-print" style="display:flex;align-items:center;justify-content:space-between;padding:14px 28px;flex-wrap:wrap;gap:10px;">
+  <a href="{{ back_url }}" class="btn-back">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    Kembali ke {{ back_label }}
+  </a>
+  <button onclick="window.print()" class="btn-cetak">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+    </svg>
+    Cetak PDF
+  </button>
+</div>
+<div style="padding:0 24px 32px;">
+<div class="infografis fade-up">
+
+  <!-- ── Header Infografis ── -->
+  <div class="info-header">
+    <h1>
+      INFOGRAFIS PREDIKSI IPM<br>
+      KABUPATEN <span class="wilayah">{{ prediksi.nama_wilayah.replace('Kabupaten ', '').replace('Kota ', '').upper() }}</span>
+      TAHUN <span class="tahun">{{ prediksi.tahun_prediksi }}</span>
+    </h1>
+    {% set nama_file = prediksi.nama_wilayah.replace('Kabupaten ', '').replace('Kota ', '') %}
+    <img src="{{ url_for('static', filename='logo_wilayah/' + nama_file + '.png') }}"
+         alt="Logo" class="info-logo" onerror="this.style.display='none'">
+    <div style="height:3px;background:linear-gradient(90deg,#1e3a5f,#3b82f6,#1e3a5f);border-radius:2px;margin-top:16px;"></div>
+  </div>
+
+  <!-- ── Profil Daerah ── -->
+  <div class="info-section">
+    <div class="info-section-header">
+      <p class="info-section-title">Profil Daerah</p>
+    </div>
+    <div class="info-section-body">
+      <div class="profil-grid">
+        <img src="{{ url_for('static', filename='landmark_wilayah/' + nama_file + '.png') }}"
+             alt="Landmark" class="landmark-img" onerror="this.style.opacity='0'">
+        <p class="profil-desc">
+          {% if prediksi.deskripsi %}{{ prediksi.deskripsi }}{% else %}Deskripsi wilayah belum tersedia.{% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Prediksi IPM ── -->
+  <div class="info-section">
+    <div class="info-section-header">
+      <p class="info-section-title">Prediksi IPM</p>
+    </div>
+    <div class="info-section-body">
+      <div class="prediksi-grid">
+        <!-- Tabel data sequence -->
+        <table class="prediksi-tbl">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Tahun</th>
+              <th>Angka Harapan Hidup (AHH)</th>
+              <th>Harapan Lama Sekolah (HLS)</th>
+              <th>Rata-Rata Lama Sekolah (RLS)</th>
+              <th>Pengeluaran per Kapita Riil (Rp)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if data_sequence %}
+              {% for seq in data_sequence %}
+              <tr>
+                <td>{{ seq.tahun if seq.tahun is defined else '—' }}</td>
+                <td>{{ '%.2f'|format(seq.ahh) if seq.ahh is defined else '—' }}</td>
+                <td>{{ '%.2f'|format(seq.hls) if seq.hls is defined else '—' }}</td>
+                <td>{{ '%.2f'|format(seq.rls) if seq.rls is defined else '—' }}</td>
+                <td>{{ '{:,.2f}'.format(seq.pengeluaran) if seq.pengeluaran is defined else '—' }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+            <tr><td colspan="5" style="text-align:center;color:#9ca3af;font-style:italic;">Data tidak tersedia</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+
+        <!-- Mini chart -->
+        <div class="chart-wrap">
+          <canvas id="chart-mini" style="height:160px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nilai Prediksi + Klasifikasi + Error -->
+    <div class="nilai-row" style="border-top:1px solid #e5e7eb;">
+      <div class="nilai-box">
+        <p class="nilai-label">Nilai Prediksi IPM</p>
+        <div class="nilai-val ipm">{{ '%.2f'|format(prediksi.nilai_prediksi) }}</div>
+      </div>
+      <div class="nilai-box">
+        <p class="nilai-label">Klasifikasi</p>
+        <div class="nilai-val kat">{{ prediksi.kategori_ipm or '—' }}</div>
+      </div>
+      <div class="nilai-box" style="text-align:left;">
+        <p class="nilai-label">
+          *Nilai Error Model
+          {% if stats.id_model %}
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#94a3b8;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:1px 6px;margin-left:4px;">Model #{{ stats.id_model }}</span>
+          {% endif %}
+        </p>
+        <div class="error-info" style="margin-top:8px;">
+          <div class="error-item">
+            <p class="error-num">{{ stats.mape if stats.mape is not none else '—' }}%</p>
+            <p class="error-label">MAPE (Test)</p>
+          </div>
+          <div class="error-item">
+            <p class="error-num">{{ stats.rmse if stats.rmse is not none else '—' }}</p>
+            <p class="error-label">RMSE (Test)</p>
+          </div>
+          <div class="error-item">
+            <p class="error-num">{{ stats.mae if stats.mae is not none else '—' }}</p>
+            <p class="error-label">MAE (Test)</p>
+          </div>
+        </div>
+        {% if stats.tgl_latih %}
+        <p style="font-size:9px;color:#94a3b8;margin-top:6px;font-family:'IBM Plex Mono',monospace;">Dilatih: {{ stats.tgl_latih }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Riwayat IPM ── -->
+  <div class="riwayat-wrap">
+    <p class="riwayat-title">Riwayat IPM</p>
+    <table class="riwayat-tbl">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Kabupaten/Kota</th>
+          <th>Tahun</th>
+          <th>Angka Harapan Hidup</th>
+          <th>Harapan Lama Sekolah</th>
+          <th>Rata-rata Lama Sekolah</th>
+          <th>Pengeluaran per Kapita Riil (Rp)</th>
+          <th>IPM</th>
+          <th>Trend</th>
+          <th>Klasifikasi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set ns = namespace(prev_ipm=None) %}
+        {% for h in historis %}
+        {% set ipm = h.ipm_aktual %}
+        {% if ipm %}{% if ipm >= 80 %}{% set kat_h = 'Sangat Tinggi' %}{% elif ipm >= 70 %}{% set kat_h = 'Tinggi' %}{% elif ipm >= 60 %}{% set kat_h = 'Sedang' %}{% else %}{% set kat_h = 'Rendah' %}{% endif %}{% else %}{% set kat_h = '' %}{% endif %}
+        <tr>
+          <td>{{ prediksi.nama_wilayah }}</td>
+          <td>{{ h.tahun }}</td>
+          <td>{{ '%.2f'|format(h.ahh) if h.ahh else '—' }}</td>
+          <td>{{ '%.2f'|format(h.hls) if h.hls else '—' }}</td>
+          <td>{{ '%.2f'|format(h.rls) if h.rls else '—' }}</td>
+          <td>{{ '{:,.2f}'.format(h.pengeluaran) if h.pengeluaran else '—' }}</td>
+          <td style="font-weight:700;">{{ '%.2f'|format(ipm) if ipm else '—' }}</td>
+          <td>
+            {% if ns.prev_ipm and ipm %}
+              {% if ipm > ns.prev_ipm %}<span class="t-up">▲ {{ '%.2f'|format(ipm - ns.prev_ipm) }}</span>
+              {% elif ipm < ns.prev_ipm %}<span class="t-down">▼ {{ '%.2f'|format(ns.prev_ipm - ipm) }}</span>
+              {% else %}<span>= 0.00</span>{% endif %}
+            {% else %}—{% endif %}
+            {% set ns.prev_ipm = ipm %}
+          </td>
+          <td>{{ kat_h }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Footer Infografis ── -->
+  <div style="background:#f3f4f6;border-top:1px solid #e5e7eb;padding:10px 20px;display:flex;justify-content:center;align-items:center;">
+    <span style="font-size:10px;color:#6b7280;font-family:'IBM Plex Mono';">Sumber Data: BPS Provinsi Jawa Timur · IPM Predictor Jawa Timur · Model GRU Bidirectional</span>
+  </div>
+
+</div><!-- /infografis -->
+</div>
+
+<footer class="no-print">
+  <span>© 2025 IPM Predictor Jawa Timur</span>
+  <span class="sep">·</span>
+  <span>Model GRU Bidirectional</span>
+  <span class="sep">·</span>
+  <span>Sumber Data: BPS Provinsi Jawa Timur</span>
+</footer>
+
+<script>
+  // ── Mini Chart di dalam infografis ────────────────────────────────
+  const labels    = {{ chart_labels   | safe }};
+  const actuals   = {{ chart_actuals  | safe }};
+  const prediksis = {{ chart_prediksi | safe }};
+
+  new Chart(document.getElementById('chart-mini').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'IPM Aktual',
+          data: actuals,
+          borderColor: '#374151',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          pointRadius: 3,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#374151',
+          pointBorderWidth: 1.5,
+          tension: .3,
+        },
+        {
+          label: 'Prediksi',
+          data: prediksis,
+          borderColor: '#374151',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [4,3],
+          pointRadius: 4,
+          pointStyle: 'circle',
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#374151',
+          pointBorderWidth: 1.5,
+          tension: .2,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {display: false},
+        tooltip: {callbacks:{label:c=>c.raw!==null?`${c.dataset.label}: ${c.raw.toFixed(2)}`:null}}
+      },
+      scales: {
+        x: {
+          grid: {color:'rgba(0,0,0,.06)'},
+          ticks: {font:{family:'IBM Plex Mono',size:8}, maxTicksLimit:6}
+        },
+        y: {
+          grid: {color:'rgba(0,0,0,.06)'},
+          ticks: {font:{family:'IBM Plex Mono',size:8}, callback:v=>v.toFixed(0)}
+        }
+      }
+    }
+  });
+</script>
+</body>
+</html>

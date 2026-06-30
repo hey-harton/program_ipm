@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Retraining Model — IPM Predictor Jatim</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['IBM Plex Sans','sans-serif'],mono:['IBM Plex Mono','monospace']}}}}</script>
+
+  <style>
+    *{box-sizing:border-box;}
+    body{font-family:'IBM Plex Sans',sans-serif;background-color:#f1f5f9;
+      background-image:linear-gradient(rgba(148,163,184,.13) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(148,163,184,.13) 1px,transparent 1px);
+      background-size:40px 40px;min-height:100vh;display:flex;flex-direction:column;}
+
+    #site-header{background-color:#1e293b;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.25);}
+    .profile-avatar{width:28px;height:28px;border-radius:50%;background:#2563eb;border:1.5px solid rgba(96,165,250,.5);
+      display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+    .profile-name{font-size:12px;font-weight:600;color:#e2e8f0;}
+    .profile-role{font-size:10px;color:#64748b;font-family:'IBM Plex Mono',monospace;}
+    .btn-logout{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#cbd5e1;
+      background:transparent;border:1px solid #475569;border-radius:6px;padding:6px 12px;transition:all .2s;text-decoration:none;}
+    .btn-logout:hover{background:#334155;color:#f1f5f9;border-color:#64748b;}
+
+    #breadcrumb-bar{background:#fff;border-top:3px solid #f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 2px 6px rgba(0,0,0,.04);}
+    .bc-item{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:#64748b;
+      padding:10px 8px 10px 0;text-decoration:none;transition:color .15s;}
+    .bc-item:hover{color:#3b82f6;}
+    .bc-sep{color:#cbd5e1;font-size:14px;user-select:none;padding:0 2px;}
+    .bc-current{font-size:12.5px;font-weight:600;color:#0f172a;display:inline-flex;align-items:center;gap:5px;padding:10px 0;}
+
+    .section-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;}
+    .section-header{padding:16px 22px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;}
+    .section-title{font-size:14px;font-weight:700;color:#0f172a;}
+
+    #site-footer{background:#1e293b;color:#64748b;font-size:11px;font-family:'IBM Plex Mono',monospace;
+      padding:14px 24px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;text-align:center;margin-top:auto;}
+    #site-footer .sep{color:#334155;}
+
+    /* ── Drop zone ── */
+    .drop-zone{background:#f8fafc;border:2px dashed #cbd5e1;border-radius:12px;padding:28px 20px;
+      text-align:center;transition:all .2s;cursor:pointer;}
+    .drop-zone:hover,.drop-zone.dragover{background:#eff6ff;border-color:#3b82f6;}
+    .drop-zone.has-file{background:#f0fdf4;border-color:#86efac;border-style:solid;}
+
+    /* ── Validate box ── */
+    .validate-box{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;}
+    .validate-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+    .validate-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;text-align:center;}
+    .validate-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:3px;}
+    .validate-val{font-size:13px;font-weight:800;color:#0f172a;font-family:'IBM Plex Mono',monospace;}
+    .status-valid{color:#16a34a;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;}
+    .status-invalid{color:#dc2626;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;}
+
+    /* ── Metrics ── */
+    .metric-panel{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;}
+    .metric-phase{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;
+      display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:99px;}
+    .phase-train{background:#dbeafe;color:#1d4ed8;}
+    .phase-test{background:#dcfce7;color:#16a34a;}
+    .metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+    .metric-block{text-align:center;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 6px;}
+    .metric-num{font-size:20px;font-weight:900;font-family:'IBM Plex Mono',monospace;letter-spacing:-.5px;line-height:1.1;}
+    .metric-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-top:2px;}
+
+    /* ── Progress ── */
+    .progress-track{background:#f1f5f9;border-radius:99px;height:10px;overflow:hidden;}
+    .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#1e3a5f,#3b82f6);
+      transition:width .5s ease;position:relative;overflow:hidden;}
+    .progress-fill::after{content:'';position:absolute;inset:0;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);
+      animation:shimmer-bar 1.5s infinite;}
+    @keyframes shimmer-bar{0%{transform:translateX(-100%);}100%{transform:translateX(200%);}}
+    .progress-fill.done{background:linear-gradient(90deg,#16a34a,#22c55e);}
+    .progress-fill.done::after{display:none;}
+
+    /* ── Status badge ── */
+    .status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;}
+    .status-idle{background:#f1f5f9;color:#64748b;}
+    .status-running{background:#dbeafe;color:#1d4ed8;}
+    .status-done{background:#dcfce7;color:#16a34a;}
+    .status-error{background:#fee2e2;color:#dc2626;}
+    .pulse-dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse-anim 1.2s ease-in-out infinite;}
+    @keyframes pulse-anim{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+
+    /* ── Log console ── */
+    #log-console{background:#0f172a;color:#94a3b8;font-family:'IBM Plex Mono',monospace;
+      font-size:11px;line-height:1.7;padding:12px 14px;border-radius:8px;height:140px;overflow-y:auto;scroll-behavior:smooth;}
+    #log-console .log-success{color:#4ade80;}
+    #log-console .log-info{color:#60a5fa;}
+    #log-console .log-warn{color:#fbbf24;}
+    #log-console .log-error{color:#f87171;}
+
+    /* ── Retrain button ── */
+    .btn-retrain{width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;
+      background:#1e3a5f;color:#fff;border:none;cursor:pointer;transition:all .2s;
+      display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.02em;}
+    .btn-retrain:hover:not(:disabled){background:#1e40af;transform:translateY(-1px);}
+    .btn-retrain:disabled{background:#94a3b8;cursor:not-allowed;transform:none;}
+    .btn-retrain.running{background:linear-gradient(90deg,#1e3a5f,#1e40af);background-size:200%;animation:btn-shimmer 1.5s infinite;}
+    @keyframes btn-shimmer{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
+
+    /* ── Pred table ── */
+    .pred-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+    .pred-table th{padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.06em;color:#94a3b8;background:#f8fafc;border-bottom:1.5px solid #e2e8f0;text-align:left;}
+    .pred-table td{padding:8px 14px;border-bottom:1px solid #f1f5f9;color:#334155;}
+    .pred-table tbody tr:hover{background:#f8fafc;}
+    .pred-table tbody tr:last-child td{border-bottom:none;}
+
+    /* ── History table ── */
+    .hist-table{width:100%;border-collapse:collapse;font-size:12px;}
+    .hist-table th{padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.06em;color:#94a3b8;background:#f8fafc;border-bottom:1.5px solid #e2e8f0;text-align:left;}
+    .hist-table td{padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#334155;font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
+    .hist-table tbody tr:last-child td{border-bottom:none;}
+    .hist-table tbody tr:hover{background:#f8fafc;}
+
+    /* ── Pill ── */
+    .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:10px;font-weight:700;}
+    .pill-sangat-tinggi{background:#dcfce7;color:#16a34a;}
+    .pill-tinggi{background:#dbeafe;color:#1d4ed8;}
+    .pill-sedang{background:#fef9c3;color:#ca8a04;}
+    .pill-rendah{background:#fee2e2;color:#dc2626;}
+
+    /* ── Toast ── */
+    #toast{position:fixed;top:24px;right:24px;z-index:999;padding:14px 20px;border-radius:12px;
+      font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;
+      box-shadow:0 12px 40px rgba(0,0,0,.2);transform:translateX(120%);transition:transform .4s cubic-bezier(.34,1.56,.64,1);}
+    #toast.show{transform:translateX(0);}
+    #toast.success{background:#0f172a;color:#4ade80;}
+    #toast.error{background:#0f172a;color:#f87171;}
+
+    /* ── Steps indicator ── */
+    .step-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:12px;}
+    .step-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;}
+    .step-pending{background:#f1f5f9;color:#94a3b8;}
+    .step-pending .step-num{background:#e2e8f0;color:#94a3b8;}
+    .step-active{background:#eff6ff;color:#1d4ed8;}
+    .step-active .step-num{background:#3b82f6;color:#fff;}
+    .step-done{background:#f0fdf4;color:#16a34a;}
+    .step-done .step-num{background:#22c55e;color:#fff;}
+    .step-error{background:#fff1f2;color:#e11d48;}
+    .step-error .step-num{background:#f43f5e;color:#fff;}
+
+    .pred-search{border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px 5px 28px;font-size:12px;
+      color:#334155;background:#f8fafc;width:150px;font-family:'IBM Plex Sans',sans-serif;transition:all .15s;}
+    .pred-search:focus{outline:none;border-color:#94a3b8;background:#fff;width:180px;}
+    .pred-scroll{max-height:calc(100vh - 280px);overflow-y:auto;}
+    .pred-scroll::-webkit-scrollbar{width:4px;}
+    .pred-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px;}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    .fade-up{animation:fadeUp .35s ease forwards;}
+    .fade-up-d1{animation-delay:.07s;opacity:0;}
+    .fade-up-d2{animation-delay:.14s;opacity:0;}
+  </style>
+</head>
+<body>
+
+<!-- ══ TOAST ════════════════════════════════════════════════════════════ -->
+<div id="toast"><span id="toast-icon">✓</span><span id="toast-msg"></span></div>
+
+<!-- ══ HEADER ═══════════════════════════════════════════════════════════ -->
+<header id="site-header">
+  <div class="px-5 md:px-8 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="{{ url_for('static', filename='Tajuk.png') }}" alt="Logo"
+           class="h-10 w-auto object-contain" onerror="this.style.display='none'">
+      <span class="font-semibold text-sm tracking-wide text-slate-100">IPM Predictor Jawa Timur</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="profile-avatar">{{ nama_admin[0]|upper }}</div>
+        <div class="hidden sm:block">
+          <p class="profile-name">{{ nama_admin }}</p>
+          <p class="profile-role">Administrator</p>
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="btn-logout">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>Logout
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ══ BREADCRUMB ════════════════════════════════════════════════════════ -->
+<div id="breadcrumb-bar">
+  <div class="px-5 md:px-8 flex items-center gap-1">
+    <a href="{{ url_for('dashboard') }}" class="bc-item">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>Dashboard
+    </a>
+    <span class="bc-sep">/</span>
+    <span class="bc-current">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>Retraining Model
+    </span>
+  </div>
+</div>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════════════════ -->
+<main class="flex-1 px-4 md:px-6 py-6 w-full">
+
+  {% if auto_start %}
+  <div class="section-card mb-5 fade-up" style="background:linear-gradient(135deg,#eff6ff,#f0fdf4);border-color:#bfdbfe;">
+    <div class="px-5 py-4 flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-blue-900">Data historis berhasil diperbarui!</p>
+        <p class="text-xs text-blue-700 mt-0.5">Retraining model GRU akan dimulai secara otomatis. Harap tunggu hingga selesai.</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══ 3-COLUMN GRID ══ -->
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+
+    <!-- ▌ KOLOM 1 — Upload & Control ▌ -->
+    <div class="lg:col-span-1 space-y-3">
+
+      <!-- Upload Dataset -->
+      <div class="section-card fade-up">
+        <div class="section-header">
+          <p class="section-title">📂 Dataset CSV</p>
+          <span class="status-badge status-idle" id="status-badge">
+            <span class="pulse-dot" id="pulse-dot" style="display:none;"></span>
+            <span id="status-text">Menunggu</span>
+          </span>
+        </div>
+        <div class="p-4 space-y-3">
+          <div class="drop-zone" id="drop-zone"
+               ondragover="event.preventDefault();this.classList.add('dragover')"
+               ondragleave="this.classList.remove('dragover')"
+               ondrop="handleDrop(event)">
+            <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <p class="text-xs text-slate-500 mb-2">Seret &amp; lepas file CSV, atau</p>
+            <label class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 text-white text-xs font-semibold cursor-pointer hover:bg-slate-800 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+              </svg>
+              Pilih File CSV
+              <input type="file" accept=".csv" id="csv-input" class="hidden" onchange="handleFile(this.files[0])">
+            </label>
+            <p class="text-xs text-slate-400 mt-2">Format: <span class="font-mono">.csv</span> · maks 5 MB · data 10–15 tahun</p>
+          </div>
+
+          <!-- File info -->
+          <div id="file-info" class="hidden bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span class="text-xs font-mono text-slate-700 truncate" id="file-name">—</span>
+            </div>
+            <button onclick="clearFile()" class="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Validate box -->
+          <div class="validate-box" id="validate-box" style="display:none;">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Validasi Dataset</p>
+            <div class="validate-row">
+              <div class="validate-item">
+                <p class="validate-label">Jumlah Tahun</p>
+                <p class="validate-val" id="val-jml">—</p>
+              </div>
+              <div class="validate-item">
+                <p class="validate-label">Rentang</p>
+                <p class="validate-val text-xs" id="val-tahun">—</p>
+              </div>
+              <div class="validate-item">
+                <p class="validate-label">Status</p>
+                <p class="validate-val" id="val-status">—</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tombol Mulai -->
+          <button class="btn-retrain" id="btn-start" onclick="startRetraining()" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Mulai Retraining
+          </button>
+        </div>
+      </div>
+
+      <!-- Proses Steps -->
+      <div class="section-card fade-up fade-up-d1" id="steps-card">
+        <div class="section-header">
+          <p class="section-title">🔄 Proses Training</p>
+          <span class="text-xs text-slate-400 font-mono" id="time-info">—</span>
+        </div>
+        <div class="p-3 space-y-1" id="steps-list">
+          <div class="step-item step-pending" id="step-1">
+            <span class="step-num">1</span>
+            <span class="text-xs font-medium">Upload & validasi CSV</span>
+          </div>
+          <div class="step-item step-pending" id="step-2">
+            <span class="step-num">2</span>
+            <span class="text-xs font-medium">Memuat & normalisasi data</span>
+          </div>
+          <div class="step-item step-pending" id="step-3">
+            <span class="step-num">3</span>
+            <span class="text-xs font-medium">Membuat sequences</span>
+          </div>
+          <div class="step-item step-pending" id="step-4">
+            <span class="step-num">4</span>
+            <span class="text-xs font-medium">Build model GRU Bidirectional</span>
+          </div>
+          <div class="step-item step-pending" id="step-5">
+            <span class="step-num">5</span>
+            <span class="text-xs font-medium">Training epochs</span>
+          </div>
+          <div class="step-item step-pending" id="step-6">
+            <span class="step-num">6</span>
+            <span class="text-xs font-medium">Evaluasi training &amp; testing</span>
+          </div>
+          <div class="step-item step-pending" id="step-7">
+            <span class="step-num">7</span>
+            <span class="text-xs font-medium">Simpan model &amp; generate prediksi</span>
+          </div>
+        </div>
+        <!-- Progress bar -->
+        <div class="px-3 pb-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs text-slate-400" id="epoch-info">Epoch 0 / 200</span>
+            <span class="text-xs font-bold font-mono text-slate-700" id="progress-text">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col1 -->
+
+    <!-- ▌ KOLOM 2 — Metrics & Chart ▌ -->
+    <div class="lg:col-span-2 space-y-3">
+
+      <!-- Training Metrics -->
+      <div class="section-card fade-up">
+        <div class="section-header">
+          <p class="section-title">📊 Metrik Evaluasi</p>
+          <span class="text-xs text-slate-400 font-mono">Model Aktif</span>
+        </div>
+        <div class="p-4 space-y-3">
+          <!-- Training -->
+          <div class="metric-panel">
+            <span class="metric-phase phase-train">Training Set</span>
+            <div class="metric-grid">
+              <div class="metric-block">
+                <p class="metric-num text-blue-700" id="live-train-mape">
+                  {% if riwayat_model_list and riwayat_model_list[0].mape_train %}
+                    {{ "%.2f"|format(riwayat_model_list[0].mape_train) }}%
+                  {% else %}—{% endif %}
+                </p>
+                <p class="metric-lbl">MAPE</p>
+              </div>
+              <div class="metric-block">
+                <p class="metric-num text-blue-700" id="live-train-rmse">
+                  {% if riwayat_model_list and riwayat_model_list[0].rmse_train %}
+                    {{ "%.5f"|format(riwayat_model_list[0].rmse_train) }}
+                  {% else %}—{% endif %}
+                </p>
+                <p class="metric-lbl">RMSE</p>
+              </div>
+              <div class="metric-block">
+                <p class="metric-num text-blue-700" id="live-train-mae">
+                  {% if riwayat_model_list and riwayat_model_list[0].mae_train %}
+                    {{ "%.5f"|format(riwayat_model_list[0].mae_train) }}
+                  {% else %}—{% endif %}
+                </p>
+                <p class="metric-lbl">MAE</p>
+              </div>
+            </div>
+          </div>
+          <!-- Testing -->
+          <div class="metric-panel">
+            <span class="metric-phase phase-test">Testing Set</span>
+            <div class="metric-grid">
+              <div class="metric-block">
+                <p class="metric-num text-emerald-700" id="live-test-mape">
+                  {{ "%.2f"|format(stats.mape) if stats else '—' }}%
+                </p>
+                <p class="metric-lbl">MAPE</p>
+              </div>
+              <div class="metric-block">
+                <p class="metric-num text-emerald-700" id="live-test-rmse">
+                  {{ "%.5f"|format(stats.rmse) if stats else '—' }}
+                </p>
+                <p class="metric-lbl">RMSE</p>
+              </div>
+              <div class="metric-block">
+                <p class="metric-num text-emerald-700" id="live-test-mae">
+                  {{ "%.5f"|format(stats.mae) if stats else '—' }}
+                </p>
+                <p class="metric-lbl">MAE</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loss Curve -->
+      <div class="section-card fade-up fade-up-d1">
+        <div class="section-header">
+          <p class="section-title">📉 Kurva Loss</p>
+          <span class="text-xs text-slate-400 font-mono" id="chart-epoch-label"></span>
+        </div>
+        <!-- Canvas: selalu ada tapi hanya terlihat jika ada data -->
+        <div class="px-4 pt-3 pb-1" id="chart-wrap" style="display:none; position:relative; height:190px;">
+          <canvas id="chart-loss"></canvas>
+        </div>
+        <!-- Static image: tampil jika belum ada loss_curve dari DB dan belum training -->
+        <div class="px-4 py-3" id="static-loss-wrap">
+          <img src="{{ url_for('static', filename='training_loss_lr_curve.png') }}"
+               id="static-loss-img"
+               alt="Loss curve model awal"
+               class="w-full rounded-lg object-contain max-h-48"
+               onerror="this.style.display='none'">
+          <p class="text-xs text-slate-400 text-center mt-1">Kurva training model terakhir</p>
+        </div>
+      </div>
+
+      <!-- Log Console -->
+      <div class="section-card fade-up fade-up-d1">
+        <div class="section-header">
+          <p class="section-title">🖥 Log Training</p>
+          <button onclick="document.getElementById('log-console').innerHTML=''" class="text-xs text-slate-400 hover:text-slate-600 transition-colors">Clear</button>
+        </div>
+        <div class="p-3">
+          <div id="log-console">
+            <div><span style="color:#475569">[sistem]</span> <span class="log-info">Siap melakukan retraining. Upload dataset CSV dan klik Mulai Retraining.</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col2 -->
+
+    <!-- ▌ KOLOM 3 — Pred Table & History ▌ -->
+    <div class="lg:col-span-2 space-y-3">
+
+      <!-- Hasil Prediksi Model -->
+      <div class="section-card fade-up">
+        <div class="section-header">
+          <div>
+            <p class="section-title">🗂 Hasil Prediksi Model</p>
+            <p class="text-xs text-slate-400 font-mono mt-0.5">
+              Prediksi tahun <span id="lbl-tahun-pred" class="font-bold text-slate-600">
+                {{ tahun_prediksi or '—' }}
+              </span>
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              <input type="text" class="pred-search" placeholder="Cari wilayah..." oninput="filterPred(this.value)">
+            </div>
+            <button onclick="cetakPDF()" id="btn-cetak"
+                    class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+              </svg>
+              Cetak PDF
+            </button>
+          </div>
+        </div>
+        {% if latest_tgl %}
+        <div class="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+          <span class="text-xs text-slate-400">Model ID #{{ latest_model_id }}</span>
+          <span class="text-slate-200">·</span>
+          <span class="text-xs text-slate-400">Dilatih: {{ latest_tgl.strftime('%d %b %Y %H:%M') if latest_tgl else '—' }}</span>
+        </div>
+        {% endif %}
+        <div class="pred-scroll">
+          <table class="pred-table">
+            <thead>
+              <tr>
+                <th>Wilayah</th>
+                <th class="text-center">IPM Aktual</th>
+                <th class="text-center">IPM Prediksi</th>
+                <th class="text-center">Error %</th>
+                <th>Kategori</th>
+              </tr>
+            </thead>
+            <tbody id="pred-tbody">
+              {% for row in hasil_prediksi_list %}
+              {% set kat = (row.kategori or '')|lower %}
+              <tr class="pred-row" data-name="{{ row.nama_wilayah|lower }}">
+                <td class="font-medium text-slate-700 text-xs">{{ row.nama_wilayah }}</td>
+                <td class="font-mono text-xs text-center text-slate-500">
+                  {{ '%.2f'|format(row.ipm_aktual) if row.ipm_aktual else '—' }}
+                </td>
+                <td class="font-mono font-bold text-slate-800 text-xs text-center">
+                  {{ '%.2f'|format(row.ipm_prediksi) if row.ipm_prediksi else '—' }}
+                </td>
+                <td class="font-mono text-xs text-center">
+                  {% if row.error_persen is not none %}
+                    <span class="{% if row.error_persen > 5 %}text-red-500{% elif row.error_persen > 2 %}text-amber-500{% else %}text-emerald-600{% endif %}">
+                      {{ '%.2f'|format(row.error_persen) }}%
+                    </span>
+                  {% else %}—{% endif %}
+                </td>
+                <td>
+                  {% if row.kategori %}
+                  <span class="pill {% if 'sangat' in kat %}pill-sangat-tinggi{% elif 'tinggi' in kat %}pill-tinggi{% elif 'sedang' in kat %}pill-sedang{% else %}pill-rendah{% endif %}">
+                    {{ row.kategori }}
+                  </span>
+                  {% else %}—{% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-center py-8 text-xs text-slate-400">Belum ada data prediksi.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Riwayat Training -->
+      <div class="section-card fade-up fade-up-d1">
+        <div class="section-header">
+          <p class="section-title">📜 Riwayat Training</p>
+          <span class="text-xs text-slate-400">5 terakhir</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="hist-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>MAPE Test</th>
+                <th>MAPE Train</th>
+                <th>RMSE Test</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in riwayat_model_list %}
+              <tr>
+                <td class="text-xs font-sans text-slate-600">
+                  {{ r.tgl_latih.strftime('%d/%m/%y %H:%M') if r.tgl_latih else '—' }}
+                </td>
+                <td class="text-emerald-700">{{ '%.4f'|format(r.skor_mape) if r.skor_mape else '—' }}%</td>
+                <td class="text-blue-700">{{ '%.4f'|format(r.mape_train) if r.mape_train else '—' }}%</td>
+                <td class="text-slate-600">{{ '%.5f'|format(r.skor_rmse) if r.skor_rmse else '—' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-center py-5 text-xs text-slate-400">Belum ada riwayat training.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /col3 -->
+
+  </div><!-- /grid -->
+</main>
+
+<footer id="site-footer">
+  <span>© IPM Predictor Jawa Timur</span><span class="sep">·</span>
+  <span>Model GRU (Bidirectional)</span><span class="sep">·</span>
+  <span>Sumber Data: BPS Provinsi Jawa Timur</span>
+</footer>
+
+<script>
+  const AUTO_START = {{ auto_start|tojson }};
+
+  // ── Loss curve data dari riwayat_model terakhir ───────────────────
+  {% if riwayat_model_list and riwayat_model_list[0].loss_curve %}
+  const INIT_LOSS_CURVE = {{ riwayat_model_list[0].loss_curve | tojson }};
+  {% else %}
+  const INIT_LOSS_CURVE = null;
+  {% endif %}
+
+  // ── Loss Chart ─────────────────────────────────────────────────────
+  // Chart.js perlu canvas yang visible untuk mengukur dimensi.
+  // Kita render dulu, baru tampilkan container sesuai kondisi.
+  const ctx = document.getElementById('chart-loss').getContext('2d');
+
+  const initLabels = INIT_LOSS_CURVE ? INIT_LOSS_CURVE.loss.map((_,i) => `E${i+1}`) : [];
+  const initTrain  = INIT_LOSS_CURVE ? INIT_LOSS_CURVE.loss      : [];
+  const initVal    = INIT_LOSS_CURVE ? INIT_LOSS_CURVE.val_loss  : [];
+
+  const lossChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: initLabels,
+      datasets: [
+        {label:'Train Loss', data:initTrain, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.08)',
+          borderWidth:1.5, pointRadius:0, tension:.4, fill:true},
+        {label:'Val Loss',   data:initVal,   borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,.06)',
+          borderWidth:1.5, pointRadius:0, tension:.4, fill:false},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{
+        legend:{position:'top',labels:{font:{family:'IBM Plex Sans',size:11},usePointStyle:true,boxWidth:8}},
+        tooltip:{callbacks:{label:c=>c.raw!=null?`${c.dataset.label}: ${c.raw.toFixed(5)}`:null}}
+      },
+      scales:{
+        x:{grid:{color:'rgba(226,232,240,.4)'},ticks:{font:{family:'IBM Plex Mono',size:9},maxTicksLimit:8}},
+        y:{grid:{color:'rgba(226,232,240,.4)'},ticks:{font:{family:'IBM Plex Mono',size:9},callback:v=>v.toFixed(4)}}
+      }
+    }
+  });
+
+  // Jika ada loss_curve dari DB → tampilkan chart, sembunyikan static image
+  if (INIT_LOSS_CURVE && INIT_LOSS_CURVE.loss && INIT_LOSS_CURVE.loss.length) {
+    document.getElementById('chart-wrap').style.display = 'block';
+    document.getElementById('static-loss-wrap').style.display = 'none';
+    document.getElementById('chart-epoch-label').textContent = `Epoch: ${INIT_LOSS_CURVE.loss.length}`;
+    lossChart.update();
+  }
+
+  // Helper: switch ke chart saat training dimulai
+  function showLiveChart() {
+    document.getElementById('chart-wrap').style.display = 'block';
+    document.getElementById('static-loss-wrap').style.display = 'none';
+    lossChart.data.labels = [];
+    lossChart.data.datasets[0].data = [];
+    lossChart.data.datasets[1].data = [];
+    lossChart.update();
+  }
+
+  // ── State ──────────────────────────────────────────────────────────
+  let polling = null, isRunning = false, startTime = null, selectedFile = null;
+  const STEP_RANGES = [[0,5],[5,18],[18,22],[22,26],[26,94],[94,97],[97,100]];
+
+  // ── File Handling ──────────────────────────────────────────────────
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }
+
+  function handleFile(file) {
+    if (!file || !file.name.endsWith('.csv')) { showToast('Hanya file .csv.', 'error'); return; }
+    if (file.size > 5*1024*1024) { showToast('File terlalu besar (maks 5 MB).', 'error'); return; }
+    selectedFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-info').classList.remove('hidden');
+    document.getElementById('drop-zone').classList.add('has-file');
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const lines = e.target.result.split('\n').filter(l => l.trim());
+      const totalData = lines.length - 1;
+      let minTahun = Infinity, maxTahun = -Infinity;
+      for (let i = 1; i < lines.length; i++) {
+        const tahun = parseInt(lines[i].split(';')[1]);
+        if (!isNaN(tahun)) { minTahun = Math.min(minTahun, tahun); maxTahun = Math.max(maxTahun, tahun); }
+      }
+      const isValid = totalData >= 1 && minTahun !== Infinity;
+      const jumlahTahun = minTahun !== Infinity ? `${maxTahun - minTahun + 1} Tahun` : '—';
+      const rentang     = minTahun !== Infinity ? `${minTahun} – ${maxTahun}` : '—';
+
+      document.getElementById('val-jml').textContent   = jumlahTahun;
+      document.getElementById('val-tahun').textContent = rentang;
+      document.getElementById('val-status').innerHTML  = isValid
+        ? '<span class="status-valid">✓ Valid</span>'
+        : '<span class="status-invalid">✕ Tidak Valid</span>';
+      document.getElementById('validate-box').style.display = 'block';
+
+      if (isValid) document.getElementById('btn-start').disabled = false;
+    };
+    reader.readAsText(file);
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    document.getElementById('csv-input').value = '';
+    document.getElementById('file-name').textContent = '—';
+    document.getElementById('file-info').classList.add('hidden');
+    document.getElementById('drop-zone').classList.remove('has-file');
+    document.getElementById('validate-box').style.display = 'none';
+    if (!isRunning) document.getElementById('btn-start').disabled = true;
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────
+  function log(msg, type='info') {
+    const con = document.getElementById('log-console');
+    const div = document.createElement('div');
+    const ts = new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    div.innerHTML = `<span style="color:#475569">[${ts}]</span> <span class="log-${type}">${msg}</span>`;
+    con.appendChild(div); con.scrollTop = con.scrollHeight;
+  }
+
+  function setStatus(s) {
+    const badge = document.getElementById('status-badge');
+    const text  = document.getElementById('status-text');
+    const dot   = document.getElementById('pulse-dot');
+    badge.className = 'status-badge';
+    dot.style.display = 'none';
+    const MAP = {idle:['status-idle','Menunggu'],running:['status-running','Sedang Berjalan'],done:['status-done','Selesai'],error:['status-error','Error']};
+    const [cls, label] = MAP[s] || MAP.idle;
+    badge.classList.add(cls); text.textContent = label;
+    if (s === 'running') dot.style.display = 'block';
+  }
+
+  function setProgress(pct) {
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = Math.round(pct) + '%';
+    if (pct >= 100) document.getElementById('progress-fill').classList.add('done');
+    else document.getElementById('progress-fill').classList.remove('done');
+
+    // Update steps
+    STEP_RANGES.forEach(([lo, hi], i) => {
+      const el = document.getElementById(`step-${i+1}`);
+      if (!el) return;
+      el.className = 'step-item ';
+      if (pct >= hi) el.className += 'step-done';
+      else if (pct >= lo) el.className += 'step-active';
+      else el.className += 'step-pending';
+    });
+  }
+
+  function showToast(msg, type='success') {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    document.getElementById('toast-icon').textContent = type === 'success' ? '✓' : '✕';
+    t.className = `show ${type}`;
+    setTimeout(() => t.classList.remove('show'), 5000);
+  }
+
+  // ── Start Retraining ───────────────────────────────────────────────
+  function startRetraining() {
+    if (isRunning) return;
+    isRunning = true; startTime = Date.now();
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('btn-start').classList.add('running');
+    setStatus('running'); setProgress(0);
+    showLiveChart();
+
+    log('Memulai proses retraining model GRU...', 'info');
+
+    const uploadPromise = selectedFile ? uploadCSVFirst(selectedFile) : Promise.resolve(true);
+    uploadPromise.then(ok => {
+      if (!ok) { setStatus('error'); isRunning = false; document.getElementById('btn-start').disabled = false; return; }
+      fetch('/api/retraining/start', {method:'POST', headers:{'Content-Type':'application/json'}})
+      .then(r => r.json()).then(d => {
+        if (d.ok) {
+          log(`Training dimulai. Total epoch: ${d.total_epochs || 200}`, 'success');
+          polling = setInterval(pollProgress, 1500);
+        } else {
+          log('Gagal: ' + d.msg, 'error'); setStatus('error');
+          isRunning = false; document.getElementById('btn-start').disabled = false;
+        }
+      }).catch(e => { log('Error: ' + e.message, 'error'); setStatus('error'); isRunning = false; });
+    });
+  }
+
+  function uploadCSVFirst(file) {
+    return new Promise(resolve => {
+      const fd = new FormData(); fd.append('file', file);
+      log('Mengunggah dataset CSV...', 'info');
+      fetch('/api/indikator/import-csv', {method:'POST', body:fd})
+      .then(r => r.json()).then(d => {
+        if (d.ok) { log(`CSV berhasil: ${d.inserted} ditambah, ${d.updated} diperbarui, ${d.skipped} dilewati.`, 'success'); resolve(true); }
+        else { log('Gagal upload CSV: ' + d.msg, 'error'); showToast('Gagal upload CSV: ' + d.msg, 'error'); resolve(false); }
+      }).catch(e => { log('Error upload: ' + e.message, 'error'); resolve(false); });
+    });
+  }
+
+  // ── Poll Progress ──────────────────────────────────────────────────
+  function pollProgress() {
+    fetch('/api/retraining/progress').then(r => r.json()).then(d => {
+      if (!d.ok) return;
+      setProgress(d.progress || 0);
+      document.getElementById('epoch-info').textContent = `Epoch ${d.current_epoch||0} / ${d.total_epochs||200}`;
+      if (startTime) {
+        const el = Math.round((Date.now()-startTime)/1000);
+        document.getElementById('time-info').textContent = `${Math.floor(el/60)}m ${String(el%60).padStart(2,'0')}s`;
+      }
+
+      // Live metrics — saat training berjalan update training metrics
+      if (d.train_loss != null) {
+        document.getElementById('live-train-mape').textContent = (d.mape||0).toFixed(2) + '%';
+        document.getElementById('live-train-rmse').textContent = (d.val_loss||0).toFixed(5);
+        document.getElementById('live-train-mae').textContent  = (d.mae||0).toFixed(5);
+      }
+
+      if (d.history && d.history.length) {
+        lossChart.data.labels = d.history.map((_,i) => `E${i+1}`);
+        lossChart.data.datasets[0].data = d.history.map(h => h.train_loss);
+        lossChart.data.datasets[1].data = d.history.map(h => h.val_loss);
+        lossChart.update('none');
+        document.getElementById('chart-epoch-label').textContent = `Epoch: ${d.history.length}`;
+      }
+
+      if (d.log_msg) log(d.log_msg, d.log_type || 'info');
+
+      if (d.status === 'done') {
+        clearInterval(polling); setProgress(100); setStatus('done');
+        isRunning = false;
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-start').classList.remove('running');
+        log('✅ Training selesai! Model berhasil disimpan.', 'success');
+        showToast('Model Berhasil Diperbarui!', 'success');
+
+        // Update testing metrics
+        if (d.mape != null) {
+          document.getElementById('live-test-mape').textContent = d.mape.toFixed(2) + '%';
+          document.getElementById('live-test-rmse').textContent = (d.rmse||0).toFixed(5);
+          document.getElementById('live-test-mae').textContent  = (d.mae||0).toFixed(5);
+        }
+        setTimeout(refreshPredTable, 2000);
+      }
+
+      if (d.status === 'error') {
+        clearInterval(polling); setStatus('error'); isRunning = false;
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-start').classList.remove('running');
+        log('❌ Training gagal: ' + (d.error_msg||'Unknown error'), 'error');
+        showToast('Training gagal. Periksa log.', 'error');
+      }
+    }).catch(() => log('Koneksi polling terputus.', 'warn'));
+  }
+
+  // ── Refresh Pred Table ─────────────────────────────────────────────
+  function refreshPredTable() {
+    fetch('/api/retraining/latest-pred').then(r => r.json()).then(d => {
+      if (!d.ok || !d.data.length) return;
+      const tbody = document.getElementById('pred-tbody');
+      tbody.innerHTML = '';
+      d.data.forEach(row => {
+        const kat = (row.kategori || '').toLowerCase();
+        const pillCls = kat.includes('sangat') ? 'pill-sangat-tinggi'
+                      : kat.includes('tinggi') ? 'pill-tinggi'
+                      : kat.includes('sedang') ? 'pill-sedang' : 'pill-rendah';
+        const errVal  = row.error_persen != null ? parseFloat(row.error_persen) : null;
+        const errCls  = errVal == null ? '' : errVal > 5 ? 'style="color:#ef4444"' : errVal > 2 ? 'style="color:#f59e0b"' : 'style="color:#16a34a"';
+        const tr = document.createElement('tr');
+        tr.className = 'pred-row'; tr.dataset.name = (row.nama_wilayah||'').toLowerCase();
+        tr.innerHTML = `
+          <td class="font-medium text-slate-700 text-xs">${row.nama_wilayah}</td>
+          <td class="font-mono text-xs text-center text-slate-500">${row.ipm_aktual ? parseFloat(row.ipm_aktual).toFixed(2) : '—'}</td>
+          <td class="font-mono font-bold text-slate-800 text-xs text-center">${row.ipm_prediksi ? parseFloat(row.ipm_prediksi).toFixed(2) : '—'}</td>
+          <td class="font-mono text-xs text-center"><span ${errCls}>${errVal != null ? errVal.toFixed(2) + '%' : '—'}</span></td>
+          <td>${row.kategori ? `<span class="pill ${pillCls}">${row.kategori}</span>` : '—'}</td>`;
+        tbody.appendChild(tr);
+      });
+      // Update label tahun prediksi dari API response
+      if (d.tahun_prediksi) {
+        const lbl = document.getElementById('lbl-tahun-pred');
+        if (lbl) lbl.textContent = d.tahun_prediksi;
+      }
+    }).catch(() => {});
+  }
+
+  // ── Cetak PDF ──────────────────────────────────────────────────────
+  function cetakPDF() {
+    const btn = document.getElementById('btn-cetak');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Menyiapkan...';
+
+    fetch('/api/retraining/cetak-pdf').then(r => r.json()).then(d => {
+      btn.disabled = false;
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg> Cetak PDF`;
+
+      if (!d.ok) { showToast('Gagal memuat data: ' + d.msg, 'error'); return; }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      // ── Header PDF ──
+      doc.setFillColor(30, 58, 95);
+      doc.rect(0, 0, 297, 22, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+      doc.text('HASIL PREDIKSI MODEL GRU — IPM JAWA TIMUR', 14, 9);
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+      const info = d.model_info;
+      doc.text(`Model ID: #${info.id_model || '—'}  |  Tanggal Latih: ${info.tgl_latih || '—'}  |  Jumlah Wilayah: ${info.jumlah_wilayah || 0}`, 14, 16);
+      doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}`, 230, 16);
+
+      // ── Distribusi Kategori ──
+      const dist = d.distribusi || {};
+      const distText = Object.entries(dist).map(([k,v]) => `${k}: ${v}`).join('   ');
+      doc.setTextColor(30, 58, 95); doc.setFillColor(239, 246, 255);
+      doc.rect(0, 22, 297, 10, 'F');
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 58, 95);
+      doc.text('Distribusi Kategori:', 14, 28);
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(71, 85, 105);
+      doc.text(distText, 55, 28);
+
+      // ── Tabel ──
+      const rows = d.data.map((r, i) => [
+        i + 1,
+        r.nama_wilayah,
+        r.ipm_aktual != null ? parseFloat(r.ipm_aktual).toFixed(2) : '—',
+        r.ipm_prediksi != null ? parseFloat(r.ipm_prediksi).toFixed(2) : '—',
+        r.error_persen != null ? parseFloat(r.error_persen).toFixed(2) + '%' : '—',
+        r.kategori || '—',
+      ]);
+
+      const KAT_COLORS = {
+        'Sangat Tinggi': [220, 252, 231],
+        'Tinggi':        [219, 234, 254],
+        'Sedang':        [254, 249, 195],
+        'Rendah':        [254, 226, 226],
+      };
+      const KAT_TEXT = {
+        'Sangat Tinggi': [22, 163, 74],
+        'Tinggi':        [29, 78, 216],
+        'Sedang':        [202, 138, 4],
+        'Rendah':        [220, 38, 38],
+      };
+
+      doc.autoTable({
+        head: [['No', 'Wilayah / Kabupaten Kota', 'IPM Aktual', 'IPM Prediksi', 'Error (%)', 'Kategori']],
+        body: rows,
+        startY: 34,
+        styles: { fontSize: 8.5, cellPadding: 3, font: 'helvetica' },
+        headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 10 },
+          1: { cellWidth: 80 },
+          2: { halign: 'center', cellWidth: 28 },
+          3: { halign: 'center', cellWidth: 28, fontStyle: 'bold' },
+          4: { halign: 'center', cellWidth: 22 },
+          5: { halign: 'center', cellWidth: 32 },
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        didParseCell: (data) => {
+          if (data.column.index === 5 && data.section === 'body') {
+            const kat = data.cell.raw;
+            if (KAT_COLORS[kat]) {
+              data.cell.styles.fillColor = KAT_COLORS[kat];
+              data.cell.styles.textColor = KAT_TEXT[kat];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+          // Warna error persen
+          if (data.column.index === 4 && data.section === 'body') {
+            const val = parseFloat(data.cell.raw);
+            if (!isNaN(val)) {
+              data.cell.styles.textColor = val > 5 ? [220, 38, 38] : val > 2 ? [202, 138, 4] : [22, 163, 74];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        },
+        didDrawPage: (data) => {
+          // Footer per halaman
+          const pageCount = doc.internal.getNumberOfPages();
+          doc.setFontSize(7); doc.setTextColor(148, 163, 184);
+          doc.text(`IPM Predictor Jawa Timur  ·  Sumber: BPS Provinsi Jawa Timur`, 14, doc.internal.pageSize.height - 8);
+          doc.text(`Halaman ${data.pageNumber} / ${pageCount}`, 260, doc.internal.pageSize.height - 8);
+        },
+      });
+
+      const tgl = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      doc.save(`Hasil_Prediksi_IPM_Jatim_${tgl}.pdf`);
+      showToast('PDF berhasil diunduh!', 'success');
+    }).catch(e => {
+      btn.disabled = false;
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg> Cetak PDF`;
+      showToast('Error: ' + e.message, 'error');
+    });
+  }
+
+  // ── Search filter ──────────────────────────────────────────────────
+  function filterPred(q) {
+    const lower = q.toLowerCase().trim();
+    document.querySelectorAll('#pred-tbody .pred-row').forEach(row => {
+      row.style.display = !lower || row.dataset.name.includes(lower) ? '' : 'none';
+    });
+  }
+
+  // ── Auto-start ─────────────────────────────────────────────────────
+  if (AUTO_START) {
+    document.getElementById('btn-start').disabled = false;
+    setTimeout(() => {
+      log('Data baru terdeteksi — memulai retraining otomatis...', 'warn');
+      startRetraining();
+    }, 800);
+  }
+</script>
+</body>
+</html>

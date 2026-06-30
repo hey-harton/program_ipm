@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Prediksi IPM — IPM Predictor Jawa Timur</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['IBM Plex Sans','sans-serif'],mono:['IBM Plex Mono','monospace']}}}}</script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'IBM Plex Sans',sans-serif;
+      background-color:#f1f5f9;
+      background-image:linear-gradient(rgba(148,163,184,.13) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(148,163,184,.13) 1px,transparent 1px);
+      background-size:40px 40px;
+      min-height:100vh;display:flex;flex-direction:column;}
+
+    /* NAV */
+    nav{background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:50;
+      box-shadow:0 1px 12px rgba(0,0,0,.06);}
+    .nav-inner{padding:0 1.5rem;height:60px;
+      display:flex;align-items:center;justify-content:space-between;}
+    .nav-link{font-size:13px;font-weight:500;color:#64748b;text-decoration:none;
+      padding:6px 14px;border-radius:8px;transition:all .15s;}
+    .nav-link:hover{color:#0f172a;background:#f1f5f9;}
+    .nav-link.active{color:#1e3a5f;font-weight:700;background:#eff6ff;}
+    .nav-btn{font-size:12px;font-weight:600;color:#fff;background:#1e3a5f;
+      border-radius:8px;padding:7px 16px;text-decoration:none;transition:all .2s;
+      display:inline-flex;align-items:center;gap:5px;border:none;}
+    .nav-btn:hover{background:#1e40af;}
+
+    /* PAGE HEADER */
+    .page-header{background:linear-gradient(135deg,#1e3a5f 0%,#1e40af 100%);
+      position:relative;overflow:hidden;}
+    .page-header::before{content:'';position:absolute;inset:0;
+      background:radial-gradient(ellipse at 80% 50%,rgba(96,165,250,.18) 0%,transparent 60%);}
+    .page-header-inner{padding:2.5rem 2rem;position:relative;z-index:1;}
+    .page-header h1{font-size:22px;font-weight:700;color:#fff;letter-spacing:-.3px;}
+    .page-header p{font-size:13px;color:rgba(255,255,255,.6);margin-top:4px;}
+    .page-header .tahun-badge{display:inline-flex;align-items:center;gap:6px;
+      background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+      border-radius:8px;padding:5px 14px;font-size:12px;font-weight:700;
+      color:rgba(255,255,255,.85);font-family:'IBM Plex Mono',monospace;margin-top:12px;}
+
+    /* LAYOUT */
+    .main{padding:1.5rem 2rem 2rem;display:flex;flex-direction:column;gap:16px;flex:1;}
+
+    /* BOTTOM ROW: form kiri, hasil kanan */
+    .bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+    @media(max-width:900px){.bottom-row{grid-template-columns:1fr;}}
+
+    /* CARD */
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;
+      box-shadow:0 1px 4px rgba(0,0,0,.04),0 4px 20px rgba(0,0,0,.04);}
+    .card-head{padding:16px 20px;border-bottom:1px solid #f1f5f9;
+      display:flex;align-items:center;justify-content:space-between;background:#fafbfc;}
+    .card-title{font-size:14px;font-weight:700;color:#0f172a;}
+    .card-sub{font-size:11px;color:#94a3b8;margin-top:2px;font-family:'IBM Plex Mono';}
+
+    /* PRED TABLE — full width, tinggi terbatas */
+    .pred-scroll{max-height:420px;overflow-y:auto;}
+    .pred-scroll::-webkit-scrollbar{width:4px;}
+    .pred-scroll::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:2px;}
+    .ptbl{width:100%;border-collapse:collapse;}
+    .ptbl th{padding:10px 16px;font-size:10px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.07em;color:#94a3b8;background:#f8fafc;
+      border-bottom:1.5px solid #e2e8f0;text-align:left;position:sticky;top:0;}
+    .ptbl td{padding:10px 16px;border-bottom:1px solid #f8fafc;color:#334155;}
+    .ptbl tbody tr{transition:background .1s;}
+    .ptbl tbody tr:hover{background:#f8fafc;}
+    .ptbl tbody tr:last-child td{border-bottom:none;}
+    .rank-num{font-family:'IBM Plex Mono';font-size:10px;color:#cbd5e1;font-weight:600;}
+
+    .pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:10px;font-weight:700;}
+    .pill-st{background:#dcfce7;color:#15803d;}
+    .pill-t{background:#dbeafe;color:#1d4ed8;}
+    .pill-s{background:#fef9c3;color:#a16207;}
+    .pill-r{background:#fee2e2;color:#b91c1c;}
+
+    /* SEARCH */
+    .sw{position:relative;}
+    .sw input{padding:6px 10px 6px 28px;border:1px solid #e2e8f0;border-radius:7px;
+      font-size:12px;color:#334155;background:#f8fafc;width:155px;font-family:inherit;
+      transition:all .15s;outline:none;}
+    .sw input:focus{border-color:#3b82f6;background:#fff;width:185px;box-shadow:0 0 0 3px rgba(59,130,246,.08);}
+    .sw-ic{position:absolute;left:8px;top:50%;transform:translateY(-50%);
+      color:#94a3b8;width:13px;height:13px;pointer-events:none;}
+
+    /* FORM SIMULASI */
+    .lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.07em;color:#94a3b8;margin-bottom:5px;}
+    .inp{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:9px 12px;
+      font-size:13px;color:#334155;background:#f8fafc;font-family:inherit;
+      transition:all .15s;outline:none;}
+    .inp:focus{border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.09);}
+    .inp.err{border-color:#ef4444;background:#fff5f5;}
+    .inp-sel{cursor:pointer;}
+
+    .tahun-blk{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;}
+    .tahun-blk-head{font-size:11px;font-weight:700;color:#64748b;
+      text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;
+      display:flex;align-items:center;justify-content:space-between;}
+    .tahun-blk-year{font-family:'IBM Plex Mono';font-size:11px;color:#94a3b8;font-weight:500;}
+    .ind-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .ind-f label{font-size:10px;font-weight:600;color:#94a3b8;margin-bottom:3px;display:block;}
+    .ind-f input{width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:7px 10px;
+      font-size:12px;font-family:'IBM Plex Mono';color:#334155;background:#fff;
+      transition:all .15s;outline:none;}
+    .ind-f input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.08);}
+    .ind-f input.err{border-color:#ef4444;}
+
+    .btn-calc{width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:10px;
+      padding:13px;font-size:13px;font-weight:700;cursor:pointer;transition:all .22s;
+      display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.02em;}
+    .btn-calc:hover{background:#1e40af;transform:translateY(-1px);box-shadow:0 8px 24px rgba(30,58,95,.3);}
+    .btn-calc:disabled{background:#94a3b8;cursor:not-allowed;transform:none;box-shadow:none;}
+
+    /* STEPS INDICATOR */
+    .step-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:12px;transition:all .3s;}
+    .step-num{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;transition:all .3s;}
+    .step-pending{background:#f1f5f9;color:#94a3b8;}
+    .step-pending .step-num{background:#e2e8f0;color:#94a3b8;}
+    .step-active{background:#eff6ff;color:#1d4ed8;}
+    .step-active .step-num{background:#3b82f6;color:#fff;}
+    .step-done{background:#f0fdf4;color:#16a34a;}
+    .step-done .step-num{background:#22c55e;color:#fff;}
+    .step-error{background:#fff1f2;color:#e11d48;}
+    .step-error .step-num{background:#f43f5e;color:#fff;}
+
+    /* RESULT */
+    .result-panel{background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);
+      border:1px solid #bfdbfe;border-radius:14px;padding:22px;display:none;}
+    .result-panel.show{display:block;}
+    .result-ipm-val{font-size:56px;font-weight:900;font-family:'IBM Plex Mono';
+      letter-spacing:-2px;line-height:1;color:#0f172a;}
+    .result-kat-badge{display:inline-flex;align-items:center;padding:5px 16px;
+      border-radius:99px;font-size:12px;font-weight:700;margin-top:8px;}
+    #chart-tren{height:160px;margin-top:16px;}
+
+    .err-msg{font-size:12px;color:#ef4444;margin-top:8px;display:none;
+      background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:8px 12px;}
+
+    /* footer */
+    footer{background:#1e293b;color:#64748b;font-size:11px;font-family:'IBM Plex Mono';
+      padding:16px 24px;display:flex;justify-content:center;gap:20px;
+      flex-wrap:wrap;text-align:center;border-top:1px solid #0f172a;margin-top:auto;}
+    footer .s{color:#334155;}
+
+    /* spinner */
+    .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);
+      border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;}
+    @keyframes sp{to{transform:rotate(360deg);}}
+    @keyframes fu{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+    .fu{animation:fu .45s ease forwards;}
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="{{ url_for('static', filename='Tajuk.png') }}" alt="Logo" style="height:30px;object-fit:contain;" onerror="this.style.display='none'">
+      <span style="font-size:14px;font-weight:700;color:#0f172a;">IPM Predictor Jawa Timur</span>
+    </div>
+    <div style="display:flex;gap:2px;">
+      <a href="{{ url_for('publik_home') }}" class="nav-link">Home</a>
+      <a href="{{ url_for('publik_prediksi') }}" class="nav-link active">Prediksi</a>
+      <a href="{{ url_for('publik_history') }}" class="nav-link">History</a>
+    </div>
+    <a href="{{ url_for('login') }}" class="nav-btn">
+      Login
+      <svg xmlns="http://www.w3.org/2000/svg" style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+      </svg>
+    </a>
+  </div>
+</nav>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="page-header-inner">
+    <h1>Prediksi IPM Kabupaten/Kota Jawa Timur</h1>
+    <p>Lihat hasil prediksi model GRU terbaru atau lakukan simulasi dengan input manual.</p>
+    <div class="tahun-badge">
+      📅 Prediksi untuk tahun <strong style="color:#fff;">{{ tahun_prediksi }}</strong>
+      &nbsp;·&nbsp; Berdasarkan data historis hingga {{ tahun_prediksi - 1 }}
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ATAS: Tabel Prediksi Model FULL WIDTH -->
+  <div class="card fu">
+    <div class="card-head">
+      <div>
+        <p class="card-title">📈 Prediksi IPM {{ tahun_prediksi }}</p>
+        {% if tgl_model %}
+        <p class="card-sub">Model dilatih {{ tgl_model.strftime('%d %b %Y') }}</p>
+        {% endif %}
+      </div>
+      <div class="sw">
+        <svg class="sw-ic" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" placeholder="Cari wilayah..." oninput="cari(this.value)">
+      </div>
+    </div>
+    <div class="pred-scroll">
+      <table class="ptbl">
+        <thead>
+          <tr>
+            <th style="width:36px;text-align:center;">#</th>
+            <th>Kabupaten / Kota</th>
+            <th style="text-align:center;">IPM Aktual</th>
+            <th style="text-align:center;">IPM Prediksi ↓</th>
+            <th style="text-align:center;">Error %</th>
+            <th style="text-align:center;">Kategori</th>
+          </tr>
+        </thead>
+        <tbody id="pred-tbody">
+          {% for row in prediksi_list %}
+          {% set kat = (row.kategori or '')|lower %}
+          {% set err = row.error_persen %}
+          <tr class="pr" data-n="{{ row.nama_wilayah|lower }}">
+            <td class="rank-num" style="text-align:center;">{{ loop.index }}</td>
+            <td style="font-size:12px;font-weight:600;color:#0f172a;">{{ row.nama_wilayah }}</td>
+            <td style="text-align:center;font-family:'IBM Plex Mono';font-size:12px;color:#64748b;">
+              {{ '%.2f'|format(row.ipm_aktual) if row.ipm_aktual else '—' }}
+            </td>
+            <td style="text-align:center;font-family:'IBM Plex Mono';font-weight:800;font-size:14px;color:#0f172a;">
+              {{ '%.2f'|format(row.ipm_prediksi) if row.ipm_prediksi else '—' }}
+            </td>
+            <td style="text-align:center;font-family:'IBM Plex Mono';font-size:12px;">
+              {% if err is not none %}
+              <span style="color:{% if err > 5 %}#ef4444{% elif err > 2 %}#f59e0b{% else %}#16a34a{% endif %};">
+                {{ '%.2f'|format(err) }}%
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td style="text-align:center;">
+              {% if row.kategori %}
+              <span class="pill {% if 'sangat' in kat %}pill-st{% elif 'tinggi' in kat %}pill-t{% elif 'sedang' in kat %}pill-s{% else %}pill-r{% endif %}">{{ row.kategori }}</span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;">Data prediksi belum tersedia.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:10px 16px;background:#fafbfc;border-top:1px solid #f1f5f9;">
+      <p style="font-size:11px;color:#94a3b8;">Prediksi dihasilkan model GRU Bidirectional dari data BPS. Diurutkan dari IPM tertinggi.</p>
+    </div>
+  </div>
+
+  <!-- BAWAH: Form Simulasi + Hasil side by side -->
+  <div class="bottom-row">
+
+    <!-- Kiri bawah: Form Simulasi -->
+    <div class="card fu">
+      <div class="card-head">
+        <div>
+          <p class="card-title">🔬 Uji Coba Simulasi Prediksi</p>
+          <p class="card-sub">Input data 3 tahun terakhir · prediksi tahun {{ tahun_prediksi }}</p>
+        </div>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+
+        <div>
+          <label class="lbl">Kabupaten / Kota</label>
+          <select class="inp inp-sel" id="sel-wil" onchange="loadHistoris(this.value)">
+            <option value="">— Pilih wilayah —</option>
+            {% for w in wilayah_list %}
+            <option value="{{ w.id_wilayah }}">{{ w.nama_wilayah }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;">
+          <p style="font-size:11px;color:#1d4ed8;line-height:1.5;">
+            💡 Pilih wilayah untuk otomatis mengisi data 3 tahun terakhir dari database. Kamu bisa mengubah nilainya sesuai skenario.
+          </p>
+        </div>
+
+        {% for i in range(1, 4) %}
+        <div class="tahun-blk">
+          <div class="tahun-blk-head">
+            <span>Data Tahun ke-{{ i }}</span>
+            <span class="tahun-blk-year" id="lbl-t{{ i }}">—</span>
+          </div>
+          <div class="ind-grid">
+            <div class="ind-f">
+              <label>AHH</label>
+              <input type="number" step="0.01" placeholder="Angka Harapan Hidup" id="ahh-{{ i }}" data-seq="{{ i }}">
+            </div>
+            <div class="ind-f">
+              <label>HLS</label>
+              <input type="number" step="0.01" placeholder="Harapan Lama Sekolah" id="hls-{{ i }}" data-seq="{{ i }}">
+            </div>
+            <div class="ind-f">
+              <label>RLS</label>
+              <input type="number" step="0.01" placeholder="Rata-rata Lama Sekolah" id="rls-{{ i }}" data-seq="{{ i }}">
+            </div>
+            <div class="ind-f">
+              <label>Pengeluaran / Kapita (Rp)</label>
+              <input type="number" step="0.01" placeholder="cth: 12500" id="pen-{{ i }}" data-seq="{{ i }}">
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+
+        <div class="err-msg" id="err-msg"></div>
+
+        <button class="btn-calc" id="btn-hitung" onclick="hitungPrediksi()">
+          <svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Hitung Prediksi
+        </button>
+      </div>
+    </div>
+
+    <!-- Kanan bawah: Hasil Simulasi -->
+    <div class="card fu" id="result-section">
+      <!-- Progress steps: muncul saat menghitung -->
+      <div id="result-steps" style="display:none;padding:20px;">
+        <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;">Proses Prediksi</p>
+        <div style="display:flex;flex-direction:column;gap:2px;" id="steps-list-sim">
+          <div class="step-item step-pending" id="sim-step-1">
+            <span class="step-num">1</span>
+            <span>Validasi input data</span>
+          </div>
+          <div class="step-item step-pending" id="sim-step-2">
+            <span class="step-num">2</span>
+            <span>Memuat data historis & model</span>
+          </div>
+          <div class="step-item step-pending" id="sim-step-3">
+            <span class="step-num">3</span>
+            <span>Normalisasi & encoding data</span>
+          </div>
+          <div class="step-item step-pending" id="sim-step-4">
+            <span class="step-num">4</span>
+            <span>Menjalankan prediksi GRU</span>
+          </div>
+          <div class="step-item step-pending" id="sim-step-5">
+            <span class="step-num">5</span>
+            <span>Menyimpan & memproses hasil</span>
+          </div>
+        </div>
+        <div style="margin-top:14px;background:#f1f5f9;border-radius:99px;height:6px;overflow:hidden;">
+          <div id="sim-progress-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#1e3a5f,#3b82f6);width:0%;transition:width .5s ease;"></div>
+        </div>
+        <p id="sim-step-msg" style="font-size:11px;color:#64748b;margin-top:8px;font-family:'IBM Plex Mono';">Memulai...</p>
+      </div>
+
+      <!-- Empty state: sebelum simulasi -->
+      <div id="result-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center;height:100%;min-height:320px;">
+        <div style="width:56px;height:56px;background:#f1f5f9;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:16px;">🔬</div>
+        <p style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;">Belum Ada Hasil Simulasi</p>
+        <p style="font-size:12px;color:#94a3b8;line-height:1.6;max-width:260px;">Silahkan lakukan uji coba simulasi di sebelah kiri untuk melihat hasil prediksi IPM wilayah yang dipilih.</p>
+      </div>
+
+      <!-- Hasil: muncul setelah simulasi -->
+      <div id="result-content" style="display:none;">
+        <div class="card-head">
+          <p class="card-title">✨ Hasil Prediksi</p>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <a href="{{ url_for('publik_history') }}"
+               style="font-size:11px;font-weight:600;color:#64748b;text-decoration:none;transition:color .15s;"
+               onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#64748b'">
+              Riwayat →
+            </a>
+            <a id="btn-detail" href="#"
+               style="font-size:11px;font-weight:700;color:#fff;background:#1e3a5f;padding:5px 12px;border-radius:7px;text-decoration:none;transition:background .15s;"
+               onmouseover="this.style.background='#1e40af'" onmouseout="this.style.background='#1e3a5f'">
+              Lihat Detail →
+            </a>
+          </div>
+        </div>
+        <div style="padding:22px;display:flex;flex-direction:column;gap:18px;">
+          <!-- IPM + Kategori -->
+          <div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;">
+            <div>
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:4px;">Nilai IPM Prediksi</p>
+              <div class="result-ipm-val" id="res-ipm">—</div>
+              <div id="res-kat" class="result-kat-badge" style="margin-top:8px;">—</div>
+            </div>
+            <div style="flex:1;min-width:120px;">
+              <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:4px;">Wilayah</p>
+              <p style="font-size:17px;font-weight:700;color:#0f172a;" id="res-wil">—</p>
+              <p style="font-size:11px;color:#94a3b8;font-family:'IBM Plex Mono';margin-top:3px;" id="res-thn">—</p>
+            </div>
+          </div>
+          <!-- Chart tren -->
+          <div>
+            <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px;">Tren IPM + Prediksi</p>
+            <div style="position:relative;height:180px;">
+              <canvas id="chart-tren"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /bottom-row -->
+</div><!-- /main -->
+
+<footer>
+  <span>© IPM Predictor Jawa Timur</span>
+  <span class="s">·</span>
+  <span>Model GRU Bidirectional</span>
+  <span class="s">·</span>
+  <span>BPS Provinsi Jawa Timur</span>
+</footer>
+
+<script>
+  const TAHUN_PRED = {{ tahun_prediksi }};
+  let trenChart = null;
+
+  // ── Filter tabel ──────────────────────────────────────────────────
+  function cari(q) {
+    const lq = q.toLowerCase().trim();
+    document.querySelectorAll('#pred-tbody .pr').forEach(tr => {
+      tr.style.display = !lq || tr.dataset.n.includes(lq) ? '' : 'none';
+    });
+  }
+
+  // ── Load historis wilayah → auto-fill ────────────────────────────
+  function loadHistoris(id) {
+    if (!id) return;
+    fetch(`/api/publik/indikator/${id}`)
+    .then(r => r.json()).then(d => {
+      if (!d.ok || !d.data.length) return;
+      const last3 = d.data.slice(-3);
+      last3.forEach((row, idx) => {
+        const i = idx + 1;
+        document.getElementById(`lbl-t${i}`).textContent = String(row.tahun);
+        document.getElementById(`ahh-${i}`).value = row.ahh || '';
+        document.getElementById(`hls-${i}`).value = row.hls || '';
+        document.getElementById(`rls-${i}`).value = row.rls || '';
+        document.getElementById(`pen-${i}`).value = row.pengeluaran || '';
+        // clear error states
+        ['ahh','hls','rls','pen'].forEach(f => document.getElementById(`${f}-${i}`).classList.remove('err'));
+      });
+      for (let i = last3.length + 1; i <= 3; i++) {
+        document.getElementById(`lbl-t${i}`).textContent = '—';
+        ['ahh','hls','rls','pen'].forEach(f => document.getElementById(`${f}-${i}`).value = '');
+      }
+    }).catch(() => {});
+  }
+
+  // ── Steps animation helpers ───────────────────────────────────────
+  const SIM_STEPS = [
+    {id:'sim-step-1', msg:'Memvalidasi input data...'},
+    {id:'sim-step-2', msg:'Memuat data historis & model GRU...'},
+    {id:'sim-step-3', msg:'Normalisasi & encoding fitur...'},
+    {id:'sim-step-4', msg:'Menjalankan prediksi GRU Bidirectional...'},
+    {id:'sim-step-5', msg:'Menyimpan hasil ke database...'},
+  ];
+  let simStepTimer = null;
+
+  function resetSimSteps() {
+    SIM_STEPS.forEach(s => {
+      document.getElementById(s.id).className = 'step-item step-pending';
+    });
+    document.getElementById('sim-progress-bar').style.width = '0%';
+    document.getElementById('sim-step-msg').textContent = 'Memulai...';
+  }
+
+  function startSimSteps() {
+    resetSimSteps();
+    document.getElementById('result-empty').style.display = 'none';
+    document.getElementById('result-content').style.display = 'none';
+    document.getElementById('result-steps').style.display = 'block';
+
+    // Animasi steps — tiap step aktif dengan delay bertahap
+    // Durasi tiap step disesuaikan dengan perkiraan proses backend
+    const delays = [200, 1200, 2800, 4200, 0]; // step-5 di-trigger manual saat response datang
+    SIM_STEPS.slice(0, 4).forEach((s, idx) => {
+      setTimeout(() => {
+        // Selesaikan step sebelumnya
+        if (idx > 0) document.getElementById(SIM_STEPS[idx-1].id).className = 'step-item step-done';
+        // Aktifkan step ini
+        document.getElementById(s.id).className = 'step-item step-active';
+        document.getElementById('sim-step-msg').textContent = s.msg;
+        document.getElementById('sim-progress-bar').style.width = `${((idx+1)/5)*80}%`;
+      }, delays[idx]);
+    });
+  }
+
+  function finishSimSteps(isError = false) {
+    clearTimeout(simStepTimer);
+    // Selesaikan step 4
+    document.getElementById(SIM_STEPS[3].id).className = 'step-item step-done';
+    // Aktifkan step 5
+    document.getElementById(SIM_STEPS[4].id).className = `step-item step-${isError ? 'error' : 'active'}`;
+    document.getElementById('sim-step-msg').textContent = isError ? '❌ Terjadi kesalahan.' : SIM_STEPS[4].msg;
+    document.getElementById('sim-progress-bar').style.width = '90%';
+
+    setTimeout(() => {
+      if (!isError) {
+        SIM_STEPS.forEach(s => { document.getElementById(s.id).className = 'step-item step-done'; });
+        document.getElementById('sim-progress-bar').style.width = '100%';
+        document.getElementById('sim-progress-bar').style.background = 'linear-gradient(90deg,#16a34a,#22c55e)';
+        document.getElementById('sim-step-msg').textContent = '✅ Selesai!';
+      } else {
+        SIM_STEPS.forEach(s => { document.getElementById(s.id).className = 'step-item step-pending'; });
+      }
+    }, 400);
+  }
+
+  // ── Hitung Prediksi ───────────────────────────────────────────────
+  function hitungPrediksi() {
+    const id_wil = document.getElementById('sel-wil').value;
+    const errEl  = document.getElementById('err-msg');
+    errEl.style.display = 'none';
+
+    if (!id_wil) { showErr('Pilih Kabupaten/Kota terlebih dahulu.'); return; }
+
+    const seq = [];
+    let valid = true;
+    for (let i = 1; i <= 3; i++) {
+      const lblTahun = document.getElementById(`lbl-t${i}`).textContent;
+      const tahun = lblTahun && lblTahun !== '—' ? parseInt(lblTahun) : TAHUN_PRED - (4 - i);
+      const ahh = parseFloat(document.getElementById(`ahh-${i}`).value);
+      const hls = parseFloat(document.getElementById(`hls-${i}`).value);
+      const rls = parseFloat(document.getElementById(`rls-${i}`).value);
+      const pen = parseFloat(document.getElementById(`pen-${i}`).value);
+      const fields = [{id:`ahh-${i}`,v:ahh},{id:`hls-${i}`,v:hls},{id:`rls-${i}`,v:rls},{id:`pen-${i}`,v:pen}];
+      let rowOk = true;
+      fields.forEach(({id,v}) => {
+        const el = document.getElementById(id);
+        if (isNaN(v) || v <= 0) { el.classList.add('err'); rowOk = false; valid = false; }
+        else el.classList.remove('err');
+      });
+      if (rowOk) seq.push({tahun, ahh, hls, rls, pengeluaran: pen});
+    }
+    if (!valid || seq.length !== 3) { showErr('Lengkapi semua indikator (nilai harus > 0) untuk ketiga tahun.'); return; }
+
+    const btn = document.getElementById('btn-hitung');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> Menghitung...';
+
+    // Mulai animasi steps
+    startSimSteps();
+
+    fetch('/api/publik/simulasi', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({id_wilayah: parseInt(id_wil), sequence: seq, tahun_prediksi: TAHUN_PRED})
+    })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Hitung Prediksi';
+
+      if (!d.ok) {
+        finishSimSteps(true);
+        setTimeout(() => {
+          document.getElementById('result-steps').style.display = 'none';
+          document.getElementById('result-empty').style.display = 'flex';
+          showErr(d.msg);
+        }, 800);
+        return;
+      }
+
+      finishSimSteps(false);
+
+      // Setelah animasi selesai, tampilkan hasil
+      setTimeout(() => {
+        document.getElementById('result-steps').style.display = 'none';
+        document.getElementById('sim-progress-bar').style.background = 'linear-gradient(90deg,#1e3a5f,#3b82f6)';
+
+        document.getElementById('res-ipm').textContent = d.nilai_prediksi.toFixed(2);
+        document.getElementById('res-wil').textContent = d.nama_wilayah;
+        document.getElementById('res-thn').textContent = `Estimasi IPM tahun ${d.tahun_prediksi}`;
+
+        const btnDetail = document.getElementById('btn-detail');
+        if (btnDetail && d.id_prediksi) btnDetail.href = `/detail-prediksi/${d.id_prediksi}`;
+
+        const kat = (d.kategori || '').toLowerCase();
+        const katEl = document.getElementById('res-kat');
+        katEl.textContent = d.kategori || '—';
+        const katStyles = {
+          sangat:{bg:'#dcfce7',color:'#15803d'},
+          tinggi:{bg:'#dbeafe',color:'#1d4ed8'},
+          sedang:{bg:'#fef9c3',color:'#a16207'},
+          rendah:{bg:'#fee2e2',color:'#b91c1c'},
+        };
+        const k = kat.includes('sangat') ? katStyles.sangat
+                : kat.includes('tinggi') ? katStyles.tinggi
+                : kat.includes('sedang') ? katStyles.sedang : katStyles.rendah;
+        katEl.style.background = k.bg; katEl.style.color = k.color;
+
+        renderChart(d.historis, d.nilai_prediksi, d.tahun_prediksi);
+        document.getElementById('result-empty').style.display = 'none';
+        document.getElementById('result-content').style.display = 'block';
+      }, 700);
+    })
+    .catch(e => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Hitung Prediksi';
+      finishSimSteps(true);
+      setTimeout(() => {
+        document.getElementById('result-steps').style.display = 'none';
+        document.getElementById('result-empty').style.display = 'flex';
+        showErr('Error jaringan: ' + e.message);
+      }, 800);
+    });
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('err-msg');
+    el.textContent = msg; el.style.display = 'block';
+  }
+
+  function renderChart(historis, pred, tahunPred) {
+    const labels = historis.map(h => String(h.tahun));
+    const aktual = historis.map(h => h.ipm_aktual ? parseFloat(h.ipm_aktual) : null);
+    labels.push(String(tahunPred)); aktual.push(null);
+    const predArr = historis.map(() => null); predArr.push(pred);
+
+    const ctx = document.getElementById('chart-tren').getContext('2d');
+    if (trenChart) trenChart.destroy();
+    trenChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {label:'IPM Aktual', data:aktual, borderColor:'#3b82f6',
+            backgroundColor:'rgba(59,130,246,.06)', borderWidth:2,
+            pointRadius:2.5, tension:.3, fill:true},
+          {label:`Prediksi ${tahunPred}`, data:predArr, borderColor:'#f59e0b',
+            backgroundColor:'rgba(245,158,11,.1)', borderWidth:2.5,
+            pointRadius:7, pointBackgroundColor:'#f59e0b',
+            pointBorderColor:'#fff', pointBorderWidth:2,
+            borderDash:[5,4], tension:0}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:{duration:500},
+        plugins:{
+          legend:{position:'top',labels:{font:{family:'IBM Plex Sans',size:11},usePointStyle:true,boxWidth:8}},
+          tooltip:{callbacks:{label:c=>c.raw!=null?`${c.dataset.label}: ${c.raw.toFixed(2)}`:null}},
+        },
+        scales:{
+          x:{grid:{color:'rgba(226,232,240,.5)'},ticks:{font:{family:'IBM Plex Mono',size:9},maxTicksLimit:8}},
+          y:{grid:{color:'rgba(226,232,240,.5)'},ticks:{font:{family:'IBM Plex Mono',size:9}}}
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>
