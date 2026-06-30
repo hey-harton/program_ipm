@@ -30,10 +30,10 @@ app.secret_key = os.environ.get('SECRET_KEY', 'ipm-jatim-secret-key-2025')
 
 # ─── Database Config ───────────────────────────────────────────────────────────
 DB_CONFIG = {
-    'host':     os.environ.get('DB_HOST', 'localhost'),
-    'user':     os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASS', ''),
-    'database': os.environ.get('DB_NAME', 'db_ipm_jatim'),
+    'host':     os.environ.get('MYSQLHOST', 'localhost'),
+    'user':     os.environ.get('MYSQLUSER', 'root'),
+    'password': os.environ.get('MYSQLPASSWORD', ''),
+    'database': os.environ.get('MYSQL_DATABASE', 'db_ipm_jatim'),
 }
 METADATA_PATH = os.path.join('static', 'model_metadata.json')
 MODEL_PATH    = os.path.join('static', 'best_gru_model.keras')
