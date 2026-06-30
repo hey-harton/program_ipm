@@ -348,7 +348,7 @@ def data_indikator():
         where_clauses.append('w.id_wilayah = %s')
         params.append(filter_wilayah)
     if filter_tahun:
-        where_clauses.append('YEAR(ih.tahun) = %s')
+        where_clauses.append('ih.tahun = %s')
         params.append(filter_tahun)
 
     where_sql = ' AND '.join(where_clauses)
@@ -415,11 +415,11 @@ def api_export_excel():
         if filter_wilayah:
             where.append('w.id_wilayah = %s'); params.append(filter_wilayah)
         if filter_tahun:
-            where.append('YEAR(ih.tahun) = %s'); params.append(filter_tahun)
+            where.append('ih.tahun = %s'); params.append(filter_tahun)
         where_sql = ' AND '.join(where)
 
         cur.execute(f"""
-            SELECT w.nama_wilayah, YEAR(ih.tahun) AS tahun,
+            SELECT w.nama_wilayah, ih.tahun AS tahun,
                    ih.ahh, ih.hls, ih.rls, ih.pengeluaran, ih.ipm_aktual
             FROM indikator_historis ih
             JOIN wilayah w ON ih.id_wilayah = w.id_wilayah
@@ -1739,7 +1739,7 @@ def publik_home():
         where = ['w.is_deleted = 0']
         params = []
         if filter_tahun:
-            where.append('YEAR(ih.tahun) = %s'); params.append(filter_tahun)
+            where.append('ih.tahun = %s'); params.append(filter_tahun)
         if search:
             where.append('w.nama_wilayah LIKE %s'); params.append(f'%{search}%')
         where_sql = ' AND '.join(where)
