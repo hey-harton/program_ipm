@@ -16,9 +16,10 @@ from flask import (
     url_for, session, flash, jsonify, abort
 )
 from werkzeug.security import check_password_hash
-import mysql.connector
+import psycopg2
+import psycopg2.extras
 from functools import wraps
-import os, json, io, csv, threading, time, traceback, logging
+import os, json, io, csv, threading, time, traceback, logging, requests
 
 # ─── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO,
@@ -29,18 +30,13 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ipm-jatim-secret-key-2025')
 
 # ─── Database Config ───────────────────────────────────────────────────────────
-DB_CONFIG = {
-    'host':     os.environ.get('DB_HOST', 'localhost'),
-    'user':     os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASS', ''),
-    'database': os.environ.get('DB_NAME', 'program_ipm_jatim_2'),
-}
-METADATA_PATH = os.path.join('static', 'model_metadata.json')
-MODEL_PATH    = os.path.join('static', 'best_gru_model.keras')
-CSV_DATASET   = 'IPM Kabupaten_Kota_Prov_Jawa_Timur.csv'
+DB_URI = os.environ.get('SUPABASE_URL', 'postgresql://postgres:password@localhost:5432/postgres')
+
+# ─── Hugging Face Config ────────────────────────────────────────────────────────
+HF_API_URL = os.environ.get('HF_API_URL', 'https://your-space.hf.space')
 
 def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+    return psycopg2.connect(DB_URI)
 
 # ─── Global retraining state ───────────────────────────────────────────────────
 _retrain_state = {
@@ -81,7 +77,7 @@ def get_klasifikasi_params():
     Fallback ke nilai BPS standar jika tabel kosong.
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
             SELECT id_parameter, ambang_bawah, ambang_atas, kategori, warna_label
             FROM parameter_klasifikasi
@@ -123,7 +119,7 @@ def validate_params_no_overlap(params_list: list, exclude_id: int = None) -> tup
     Returns: (is_valid: bool, error_msg: str)
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         query = "SELECT id_parameter, ambang_bawah, ambang_atas, kategori FROM parameter_klasifikasi"
         if exclude_id:
             query += f" WHERE id_parameter != {int(exclude_id)}"
@@ -148,7 +144,7 @@ def validate_params_no_overlap(params_list: list, exclude_id: int = None) -> tup
 def get_model_stats():
     """Ambil statistik model aktif dari DB atau metadata JSON."""
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
             SELECT skor_mape, skor_mae, skor_rmse, tgl_latih
             FROM riwayat_model ORDER BY tgl_latih DESC LIMIT 1
@@ -191,7 +187,7 @@ def get_kategori_summary():
     Re-klasifikasi berdasarkan parameter terkini agar selalu sinkron.
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         params = get_klasifikasi_params()
         cur.execute("""
             SELECT ipm_prediksi FROM hasil_prediksi_model
@@ -210,7 +206,7 @@ def get_kategori_summary():
 def get_riwayat_prediksi_dashboard(limit=10):
     """Riwayat uji simulasi terbaru untuk widget dashboard."""
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
             SELECT hus.id_prediksi, w.nama_wilayah,
                    hus.nilai_prediksi,
@@ -261,7 +257,7 @@ def login():
             return render_template('login.html')
 
         try:
-            conn = get_db(); cur = conn.cursor(dictionary=True)
+            conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             cur.execute(
                 'SELECT id_admin, username, password, nama_lengkap '
                 'FROM admin WHERE username = %s',
@@ -316,7 +312,7 @@ def dashboard():
 @app.route('/data-indikator')
 @login_required
 def data_indikator():
-    conn = get_db(); cur = conn.cursor(dictionary=True)
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     # Daftar wilayah aktif
     cur.execute("""
@@ -405,7 +401,7 @@ def api_export_excel():
     Parameter query: filter_wilayah, filter_tahun
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         filter_wilayah = request.args.get('filter_wilayah', '').strip()
         filter_tahun   = request.args.get('filter_tahun', '').strip()
@@ -578,7 +574,7 @@ def api_tambah_tahun():
 
     try:
         tahun = int(tahun)
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # Ambil semua wilayah aktif
         cur.execute("SELECT id_wilayah FROM wilayah WHERE is_deleted = 0")
@@ -650,7 +646,7 @@ def api_import_csv():
         reader  = csv.DictReader(io.StringIO(content), delimiter=';')
         reader.fieldnames = [h.strip() for h in (reader.fieldnames or [])]
 
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # Cache nama wilayah → id_wilayah (hanya yang aktif)
         cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = 0")
@@ -724,7 +720,7 @@ def api_import_csv():
 @app.route('/riwayat-prediksi')
 @login_required
 def riwayat_prediksi():
-    conn = get_db(); cur = conn.cursor(dictionary=True)
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     filter_wilayah  = request.args.get('filter_wilayah', '').strip()
     filter_tahun    = request.args.get('filter_tahun', '').strip()
@@ -865,7 +861,7 @@ def detail_prediksi(id_prediksi):
         back_url   = url_for('riwayat_prediksi')
         back_label = 'Riwayat Prediksi'
 
-    conn = get_db(); cur = conn.cursor(dictionary=True)
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     cur.execute("""
         SELECT hus.id_prediksi, hus.tahun_prediksi, hus.nilai_prediksi,
@@ -976,7 +972,7 @@ def retraining():
     stats = get_model_stats()
 
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # ── Hasil prediksi model (id_model terbaru) ───────────────────────
         cur.execute("""
@@ -1022,7 +1018,7 @@ def retraining():
         latest_tgl      = hasil_prediksi_list[0]['tgl_model'] if hasil_prediksi_list else None
 
         # Tahun prediksi = max tahun indikator historis + 1
-        cur2 = conn.cursor(dictionary=True)
+        cur2 = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur2.execute("SELECT MAX(tahun) AS max_thn FROM indikator_historis")
         row_thn = cur2.fetchone()
         tahun_prediksi = (int(str(row_thn['max_thn'])[:4]) + 1) if row_thn and row_thn['max_thn'] else None
@@ -1056,7 +1052,7 @@ def retraining():
 def api_retraining_latest_pred():
     """Refresh tabel prediksi di halaman retraining setelah training selesai."""
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         params = get_klasifikasi_params()
         cur.execute("""
             SELECT w.nama_wilayah,
@@ -1100,7 +1096,7 @@ def api_cetak_pdf():
     untuk di-render menjadi PDF di frontend (via jsPDF / print).
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         params = get_klasifikasi_params()
 
         cur.execute("""
@@ -1159,7 +1155,7 @@ def api_retraining_viz_data():
     wilayah, loss curve, dan metrik training/testing terbaru.
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         params = get_klasifikasi_params()
 
         # ── Data prediksi model terbaru ───────────────────────────────────
@@ -1350,7 +1346,7 @@ def _run_retraining():
         _update(log_msg='Mengambil data dari database...', log_type='info', progress=5)
 
         # ── Ambil data dari DB ────────────────────────────────────────────
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
             SELECT w.id_wilayah, w.nama_wilayah,
                    ih.tahun, ih.ahh, ih.hls, ih.rls,
@@ -1610,7 +1606,7 @@ def _generate_predictions_all(model, scaler, scaler_y, le,
     CUTOFF_YEAR = 2021
     TARGET      = 'ipm_aktual'
 
-    conn = get_db(); cur = conn.cursor(dictionary=True)
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute("""
         SELECT w.id_wilayah, w.nama_wilayah,
                ih.tahun, ih.ahh, ih.hls, ih.rls,
@@ -1685,7 +1681,7 @@ def _generate_predictions_all(model, scaler, scaler_y, le,
 @login_required
 def konfigurasi():
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
             SELECT id_parameter, ambang_bawah, ambang_atas, kategori, warna_label
             FROM parameter_klasifikasi ORDER BY ambang_bawah
@@ -1777,7 +1773,7 @@ def api_edit_parameter(id_parameter):
 @login_required
 def api_hapus_parameter(id_parameter):
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         # Cek minimal 1 parameter tersisa
         cur.execute("SELECT COUNT(*) AS total FROM parameter_klasifikasi")
         total = cur.fetchone()['total']
@@ -1803,7 +1799,7 @@ def api_parameter_reapply():
     """
     try:
         params = get_klasifikasi_params()
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # 1. Update hasil_uji_simulasi
         cur.execute("SELECT id_prediksi, nilai_prediksi FROM hasil_uji_simulasi")
@@ -1849,7 +1845,7 @@ def api_stats():
 @login_required
 def api_wilayah_list():
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = 0 ORDER BY nama_wilayah")
         rows = cur.fetchall(); cur.close(); conn.close()
         return jsonify({'ok': True, 'data': rows})
@@ -1861,7 +1857,7 @@ def api_wilayah_list():
 @login_required
 def api_indikator_latest(id_wilayah):
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
             SELECT tahun, ahh, hls, rls, pengeluaran, ipm_aktual
             FROM indikator_historis
@@ -1885,7 +1881,7 @@ def api_wilayah_aktif_latest():
     tahun terbaru mereka (untuk form tambah data satu tahun penuh).
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
             SELECT w.id_wilayah, w.nama_wilayah,
                    ih.tahun AS tahun_terakhir,
@@ -1917,7 +1913,7 @@ def publik_home():
     - Daftar riwayat IPM dari indikator_historis (dengan filter tahun & search)
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # Daftar tahun tersedia — kolom year(4) dikembalikan sebagai date object oleh mysql-connector
         cur.execute("SELECT DISTINCT tahun FROM indikator_historis ORDER BY tahun DESC")
@@ -1989,7 +1985,7 @@ def publik_prediksi():
     - Kanan: form uji coba simulasi prediksi manual (3 tahun input)
     """
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # Hasil prediksi model terbaru
         params = get_klasifikasi_params()
@@ -2037,7 +2033,7 @@ def publik_prediksi():
 def publik_history():
     """Halaman publik riwayat uji simulasi (hasil_uji_simulasi)."""
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         filter_wilayah  = request.args.get('filter_wilayah', '').strip()
         filter_kategori = request.args.get('filter_kategori', '').strip()
         search          = request.args.get('search', '').strip()
@@ -2107,7 +2103,7 @@ def publik_history():
 def api_publik_indikator(id_wilayah):
     """Semua data historis satu wilayah untuk chart tren di form simulasi."""
     try:
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("""
             SELECT tahun, ahh, hls, rls, pengeluaran, ipm_aktual
             FROM indikator_historis
@@ -2144,7 +2140,7 @@ def api_publik_simulasi():
             return jsonify({'ok': False, 'msg': 'Model belum tersedia. Lakukan retraining terlebih dahulu.'}), 503
 
         # Load model & scaler dari DB historis (fit ulang scaler agar konsisten)
-        conn = get_db(); cur = conn.cursor(dictionary=True)
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         cur.execute("""
             SELECT w.nama_wilayah, ih.ahh, ih.hls, ih.rls, ih.pengeluaran, ih.ipm_aktual
