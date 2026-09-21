@@ -55,7 +55,7 @@ DB_URI = (
 )
 
 # ─── Hugging Face Config ────────────────────────────────────────────────────────
-HF_API_URL = os.environ.get('HF_API_URL', 'https://your-space.hf.space')
+HF_API_URL = os.environ.get('HF_API_URL', 'https://hey-tono-ipm-jatim-model.hf.space')
 
 def get_db():
     return psycopg2.connect(clean_db_uri(DB_URI))
@@ -1830,28 +1830,34 @@ def api_publik_simulasi():
         nama_wil = wil_row['nama_wilayah']
 
         # Delegasikan prediksi ke Hugging Face Spaces API
-        payload = {
-            "kabupaten": nama_wil,
-            "data_3_tahun": [
-                {
-                    "AHH": float(s.get('ahh', 0)),
-                    "HLS": float(s.get('hls', 0)),
-                    "RLS": float(s.get('rls', 0)),
-                    "Pengeluaran per Kapita Riil (Rp)": float(s.get('pengeluaran', 0)),
-                    "IPM": float(s.get('ipm', 70))
-                }
-                for s in sequence
-            ]
-        }
+        last_item = sequence[-1] if sequence else {}
+        y_pred = None
         try:
-            hf_res = requests.post(f"{HF_API_URL.rstrip('/')}/predict", json=payload, timeout=12)
-            if hf_res.status_code == 200 and hf_res.json().get('ok'):
-                y_pred = float(hf_res.json()['prediksi'])
-            else:
-                avg_ipm = sum(float(s.get('ipm', 70)) for s in sequence) / max(1, len(sequence))
-                y_pred = round(avg_ipm + 0.35, 2)
-        except Exception as err:
-            logger.warning(f"HF API call fallback: {err}")
+            # Panggil endpoint resmi Gradio API
+            call_url = f"{HF_API_URL.rstrip('/')}/gradio_api/call/gradio_predict"
+            gradio_payload = {
+                "data": [
+                    nama_wil,
+                    float(last_item.get('ahh', 70)),
+                    float(last_item.get('hls', 13)),
+                    float(last_item.get('rls', 8)),
+                    float(last_item.get('pengeluaran', 11000)),
+                    float(last_item.get('ipm', 70))
+                ]
+            }
+            res = requests.post(call_url, json=gradio_payload, timeout=5)
+            if res.status_code == 200:
+                event_id = res.json().get('event_id')
+                if event_id:
+                    res_stream = requests.get(f"{call_url}/{event_id}", timeout=10)
+                    m = re.search(r'Prediksi IPM:\s*([0-9.]+)', res_stream.text)
+                    if m:
+                        y_pred = float(m.group(1))
+        except Exception as e_gradio:
+            logger.warning(f"Gradio API call error: {e_gradio}")
+
+        # Fallback jika model API belum merespons
+        if y_pred is None:
             avg_ipm = sum(float(s.get('ipm', 70)) for s in sequence) / max(1, len(sequence))
             y_pred = round(avg_ipm + 0.35, 2)
 
