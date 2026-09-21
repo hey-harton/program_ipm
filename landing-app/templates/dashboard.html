@@ -646,6 +646,8 @@
 
       // Loss curve
       if (d.loss_curve && d.loss_curve.loss && d.loss_curve.loss.length) {
+        document.getElementById('dash-loss-empty').style.display = 'none';
+        document.getElementById('dash-loss-chart').style.display = 'block';
         dashLossChart.data.labels           = d.loss_curve.loss.map((_, i) => `E${i + 1}`);
         dashLossChart.data.datasets[0].data = d.loss_curve.loss;
         dashLossChart.data.datasets[1].data = d.loss_curve.val_loss;
@@ -663,10 +665,11 @@
       if (d.prediksi && d.prediksi.length) {
         const rows = d.prediksi;
         // Nama singkat: "Kab. Malang" → "Malang", "Kota Surabaya" → "Surabaya"
-        const labels  = rows.map(r => r.nama_wilayah.replace(/^(Kabupaten|Kab\.|Kota)\s+/i, ''));
+        const labels  = rows.map(r => (r.nama_wilayah || '').replace(/^(Kabupaten|Kab\.|Kota)\s+/i, ''));
         const aktual  = rows.map(r => r.ipm_aktual);
         const prediksi = rows.map(r => r.ipm_prediksi);
         buildEvalChart(labels, aktual, prediksi);
+        document.getElementById('dash-eval-empty').style.display = 'none';
         document.getElementById('dash-eval-wrap').style.display = 'block';
         document.getElementById('dash-eval-label').textContent =
           `Test set · ${rows.length} wilayah`;

@@ -1185,7 +1185,7 @@ def api_retraining_viz_data():
             WHERE hp.id_model = (SELECT MAX(id_model) FROM hasil_prediksi_model)
             ORDER BY hp.ipm_prediksi DESC
         """)
-        prediksi_rows = cur.fetchall()
+        prediksi_rows = [dict(r) for r in cur.fetchall()]
 
         # Re-klasifikasi berdasarkan parameter terkini
         for r in prediksi_rows:
