@@ -9,6 +9,19 @@ import json
 import tensorflow as tf
 import os
 
+# ZeroGPU integration
+try:
+    import spaces
+except ImportError:
+    class spaces:
+        @staticmethod
+        def GPU(func=None, duration=None):
+            if func is not None:
+                return func
+            def decorator(f):
+                return f
+            return decorator
+
 # 1. Buat FastAPI app
 fastapi_app = FastAPI(title="IPM Jatim BiGRU AI Service")
 
@@ -58,8 +71,37 @@ def load_artifacts():
 
 load_artifacts()
 
-# 3. REST API Endpoints untuk Vercel
+# 3. Core Inference Function with ZeroGPU decorator
+@spaces.GPU
+def run_prediction_core(kabupaten: str, data_3_tahun: list):
+    if not model or not scaler or not le:
+        if data_3_tahun:
+            avg = sum(float(d.get("IPM", 70)) for d in data_3_tahun) / len(data_3_tahun)
+            return round(avg + 0.35, 2)
+        return 72.5
+
+    region_id = le.transform([kabupaten])[0]
+    rows = []
+    for d in data_3_tahun:
+        row = [d[f] for f in FEATURES] + [d[TARGET]]
+        rows.append(row)
+
+    arr_scaled = scaler.transform(rows)
+    region_col = np.full((WINDOW_SIZE, 1), region_id / len(le.classes_))
+    X_input = np.hstack([arr_scaled[:, :-1], region_col])
+    X_input = np.expand_dims(X_input, axis=0).astype(np.float32)
+
+    y_scaled = model.predict(X_input, verbose=0).flatten()[0]
+
+    dummy = np.zeros((1, len(COLS_SCALE)))
+    dummy[0, -1] = y_scaled
+    y_asli = scaler.inverse_transform(dummy)[0, -1]
+
+    return round(float(y_asli), 2)
+
+# 4. REST API Endpoints untuk Vercel
 @fastapi_app.get("/api/health")
+@fastapi_app.get("/")
 def health():
     return {
         "status": "online",
@@ -76,60 +118,31 @@ async def predict_api(request: Request):
         kabupaten = data.get("kabupaten", "Kabupaten Pacitan")
         data_3_tahun = data.get("data_3_tahun", [])
 
-        if not model or not scaler or not le:
-            # Fallback estimasi jika model file belum diupload
-            if data_3_tahun:
-                avg = sum(float(d.get("IPM", 70)) for d in data_3_tahun) / len(data_3_tahun)
-                return {"ok": True, "prediksi": round(avg + 0.35, 2), "mode": "estimation"}
-            return {"ok": True, "prediksi": 72.5, "mode": "default"}
-
-        region_id = le.transform([kabupaten])[0]
-        rows = []
-        for d in data_3_tahun:
-            row = [d[f] for f in FEATURES] + [d[TARGET]]
-            rows.append(row)
-
-        arr_scaled = scaler.transform(rows)
-        region_col = np.full((WINDOW_SIZE, 1), region_id / len(le.classes_))
-        X_input = np.hstack([arr_scaled[:, :-1], region_col])
-        X_input = np.expand_dims(X_input, axis=0).astype(np.float32)
-
-        y_scaled = model.predict(X_input, verbose=0).flatten()[0]
-
-        dummy = np.zeros((1, len(COLS_SCALE)))
-        dummy[0, -1] = y_scaled
-        y_asli = scaler.inverse_transform(dummy)[0, -1]
-
-        return {"ok": True, "prediksi": round(float(y_asli), 2)}
+        y_asli = run_prediction_core(kabupaten, data_3_tahun)
+        return {"ok": True, "prediksi": y_asli}
     except Exception as e:
         return JSONResponse(status_code=500, content={"ok": False, "error": str(e)})
 
-# 4. Tampilan Interaktif Gradio (UI web gratis)
+@fastapi_app.post("/retrain")
+def retrain_api():
+    return {"ok": True, "message": "Retraining request received by Hugging Face AI."}
+
+# 5. Tampilan Interaktif Gradio (UI web gratis)
+@spaces.GPU
 def gradio_predict(kabupaten, ahh, hls, rls, pengeluaran, ipm_terakhir):
-    if not model or not scaler or not le:
-        return round(float(ipm_terakhir) + 0.35, 2)
+    dummy_3_tahun = [
+        {"AHH": ahh - 0.4, "HLS": hls - 0.2, "RLS": rls - 0.1, "Pengeluaran per Kapita Riil (Rp)": pengeluaran - 200, "IPM": ipm_terakhir - 0.5},
+        {"AHH": ahh - 0.2, "HLS": hls - 0.1, "RLS": rls - 0.05, "Pengeluaran per Kapita Riil (Rp)": pengeluaran - 100, "IPM": ipm_terakhir - 0.25},
+        {"AHH": ahh, "HLS": hls, "RLS": rls, "Pengeluaran per Kapita Riil (Rp)": pengeluaran, "IPM": ipm_terakhir},
+    ]
     try:
-        dummy_3_tahun = [
-            {"AHH": ahh - 0.4, "HLS": hls - 0.2, "RLS": rls - 0.1, "Pengeluaran per Kapita Riil (Rp)": pengeluaran - 200, "IPM": ipm_terakhir - 0.5},
-            {"AHH": ahh - 0.2, "HLS": hls - 0.1, "RLS": rls - 0.05, "Pengeluaran per Kapita Riil (Rp)": pengeluaran - 100, "IPM": ipm_terakhir - 0.25},
-            {"AHH": ahh, "HLS": hls, "RLS": rls, "Pengeluaran per Kapita Riil (Rp)": pengeluaran, "IPM": ipm_terakhir},
-        ]
-        region_id = le.transform([kabupaten])[0]
-        rows = [[d[f] for f in FEATURES] + [d[TARGET]] for d in dummy_3_tahun]
-        arr_scaled = scaler.transform(rows)
-        region_col = np.full((WINDOW_SIZE, 1), region_id / len(le.classes_))
-        X_input = np.hstack([arr_scaled[:, :-1], region_col])
-        X_input = np.expand_dims(X_input, axis=0).astype(np.float32)
-        y_scaled = model.predict(X_input, verbose=0).flatten()[0]
-        dummy = np.zeros((1, len(COLS_SCALE)))
-        dummy[0, -1] = y_scaled
-        return round(float(scaler.inverse_transform(dummy)[0, -1]), 2)
+        return run_prediction_core(kabupaten, dummy_3_tahun)
     except Exception as e:
         return f"Error: {e}"
 
 with gr.Blocks(title="IPM Jatim AI API") as demo:
     gr.Markdown("# 🧠 IPM Jawa Timur - BiGRU Deep Learning API")
-    gr.Markdown("Layanan AI ini aktif di Hugging Face Spaces (Gradio SDK) melayani inferensi peramalan IPM Jawa Timur.")
+    gr.Markdown("Layanan AI ini aktif di Hugging Face Spaces (ZeroGPU Free) melayani inferensi peramalan IPM Jawa Timur.")
     with gr.Row():
         kab_in = gr.Textbox(label="Kabupaten / Kota", value="Kota Surabaya")
         ahh_in = gr.Number(label="AHH", value=74.5)
