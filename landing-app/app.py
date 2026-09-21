@@ -282,7 +282,7 @@ def login():
             else:
                 flash('Username atau password salah.', 'error')
 
-        except mysql.connector.Error as e:
+        except Exception as e:
             flash(f'Kesalahan koneksi database: {str(e)}', 'error')
 
     return render_template('login.html')
@@ -325,7 +325,7 @@ def data_indikator():
     cur.execute("""
         SELECT id_wilayah, nama_wilayah
         FROM wilayah
-        WHERE is_deleted = 0
+        WHERE is_deleted = FALSE
         ORDER BY nama_wilayah
     """)
     wilayah_list = cur.fetchall()
@@ -344,14 +344,14 @@ def data_indikator():
     per_page       = int(request.args.get('per_page', 10))
     per_page       = per_page if per_page in (5, 10, 20, 50, 100) else 10
 
-    where_clauses = ['w.is_deleted = 0']
+    where_clauses = ['w.is_deleted = FALSE']
     params: list = []
 
     if filter_wilayah:
         where_clauses.append('w.id_wilayah = %s')
         params.append(filter_wilayah)
     if filter_tahun:
-        where_clauses.append('YEAR(ih.tahun) = %s')
+        where_clauses.append('ih.tahun = %s')
         params.append(filter_tahun)
 
     where_sql = ' AND '.join(where_clauses)
@@ -379,7 +379,7 @@ def data_indikator():
     historis_list = cur.fetchall()
 
     cur.execute("SELECT DISTINCT tahun FROM indikator_historis ORDER BY tahun DESC")
-    tahun_list = [int(str(r['tahun'])[:4]) for r in cur.fetchall()]
+    tahun_list = [int(r['tahun']) for r in cur.fetchall()]
 
     cur.close(); conn.close()
 
@@ -413,16 +413,16 @@ def api_export_excel():
         filter_wilayah = request.args.get('filter_wilayah', '').strip()
         filter_tahun   = request.args.get('filter_tahun', '').strip()
 
-        where = ['w.is_deleted = 0']
+        where = ['w.is_deleted = FALSE']
         params = []
         if filter_wilayah:
             where.append('w.id_wilayah = %s'); params.append(filter_wilayah)
         if filter_tahun:
-            where.append('YEAR(ih.tahun) = %s'); params.append(filter_tahun)
+            where.append('ih.tahun = %s'); params.append(filter_tahun)
         where_sql = ' AND '.join(where)
 
         cur.execute(f"""
-            SELECT w.nama_wilayah, YEAR(ih.tahun) AS tahun,
+            SELECT w.nama_wilayah, ih.tahun AS tahun,
                    ih.ahh, ih.hls, ih.rls, ih.pengeluaran, ih.ipm_aktual
             FROM indikator_historis ih
             JOIN wilayah w ON ih.id_wilayah = w.id_wilayah
@@ -436,7 +436,7 @@ def api_export_excel():
         for r in rows:
             data.append({
                 'Kabupaten/Kota':            r['nama_wilayah'],
-                'Tahun':                     int(str(r['tahun'])[:4]),
+                'Tahun':                     int(r['tahun']),
                 'AHH':                       float(r['ahh'])         if r['ahh']         else None,
                 'HLS':                       float(r['hls'])         if r['hls']         else None,
                 'RLS':                       float(r['rls'])         if r['rls']         else None,
@@ -460,13 +460,13 @@ def api_tambah_wilayah():
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute(
-            "INSERT INTO wilayah (nama_wilayah, is_deleted) VALUES (%s, 0)",
+            "INSERT INTO wilayah (nama_wilayah, is_deleted) VALUES (%s, FALSE) RETURNING id_wilayah",
             (nama,)
         )
-        new_id = cur.lastrowid
+        new_id = cur.fetchone()[0]
         conn.commit(); cur.close(); conn.close()
         return jsonify({'ok': True, 'id_wilayah': new_id, 'nama_wilayah': nama})
-    except mysql.connector.IntegrityError:
+    except Exception:
         return jsonify({'ok': False, 'msg': 'Nama wilayah sudah ada.'}), 409
     except Exception as e:
         return jsonify({'ok': False, 'msg': str(e)}), 500
@@ -499,7 +499,7 @@ def api_hapus_wilayah(id_wilayah):
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute(
-            "UPDATE wilayah SET is_deleted = 1 WHERE id_wilayah = %s",
+            "UPDATE wilayah SET is_deleted = TRUE WHERE id_wilayah = %s",
             (id_wilayah,)
         )
         conn.commit(); cur.close(); conn.close()
@@ -515,7 +515,7 @@ def api_restore_wilayah(id_wilayah):
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute(
-            "UPDATE wilayah SET is_deleted = 0 WHERE id_wilayah = %s",
+            "UPDATE wilayah SET is_deleted = FALSE WHERE id_wilayah = %s",
             (id_wilayah,)
         )
         conn.commit(); cur.close(); conn.close()
@@ -584,7 +584,7 @@ def api_tambah_tahun():
         conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # Ambil semua wilayah aktif
-        cur.execute("SELECT id_wilayah FROM wilayah WHERE is_deleted = 0")
+        cur.execute("SELECT id_wilayah FROM wilayah WHERE is_deleted = FALSE")
         aktif_ids = {r['id_wilayah'] for r in cur.fetchall()}
 
         inserted = 0; updated = 0; errors = []
@@ -607,12 +607,10 @@ def api_tambah_tahun():
                 INSERT INTO indikator_historis
                     (id_wilayah, tahun, ahh, hls, rls, pengeluaran, ipm_aktual)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    ahh=%s, hls=%s, rls=%s, pengeluaran=%s, ipm_aktual=%s
-            """, (
-                id_wil, tahun, ahh, hls, rls, pengeluaran, ipm_aktual,
-                ahh, hls, rls, pengeluaran, ipm_aktual,
-            ))
+                ON CONFLICT (id_wilayah, tahun) DO UPDATE SET
+                    ahh = EXCLUDED.ahh, hls = EXCLUDED.hls, rls = EXCLUDED.rls,
+                    pengeluaran = EXCLUDED.pengeluaran, ipm_aktual = EXCLUDED.ipm_aktual
+            """, (id_wil, tahun, ahh, hls, rls, pengeluaran, ipm_aktual))
             if cur.rowcount == 1:
                 inserted += 1
             else:
@@ -656,7 +654,7 @@ def api_import_csv():
         conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # Cache nama wilayah → id_wilayah (hanya yang aktif)
-        cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = 0")
+        cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = FALSE")
         wilayah_map = {
             r['nama_wilayah'].strip().lower(): r['id_wilayah']
             for r in cur.fetchall()
@@ -694,12 +692,10 @@ def api_import_csv():
                 INSERT INTO indikator_historis
                     (id_wilayah, tahun, ahh, hls, rls, pengeluaran, ipm_aktual)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    ahh=%s, hls=%s, rls=%s, pengeluaran=%s, ipm_aktual=%s
-            """, (
-                id_wil, tahun, ahh, hls, rls, pengeluaran, ipm,
-                ahh, hls, rls, pengeluaran, ipm,
-            ))
+                ON CONFLICT (id_wilayah, tahun) DO UPDATE SET
+                    ahh = EXCLUDED.ahh, hls = EXCLUDED.hls, rls = EXCLUDED.rls,
+                    pengeluaran = EXCLUDED.pengeluaran, ipm_aktual = EXCLUDED.ipm_aktual
+            """, (id_wil, tahun, ahh, hls, rls, pengeluaran, ipm))
             if cur.rowcount == 1:
                 inserted += 1
             else:
@@ -737,7 +733,7 @@ def riwayat_prediksi():
     per_page        = int(request.args.get('per_page', 10))
     per_page        = per_page if per_page in (5, 10, 20, 50, 100) else 10
 
-    where_clauses = ['w.is_deleted = 0']
+    where_clauses = ['w.is_deleted = FALSE']
     params: list  = []
 
     if filter_wilayah:
@@ -781,7 +777,7 @@ def riwayat_prediksi():
     """, params + [per_page, offset])
     riwayat = cur.fetchall()
 
-    cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = 0 ORDER BY nama_wilayah")
+    cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = FALSE ORDER BY nama_wilayah")
     wilayah_list = cur.fetchall()
 
     cur.execute("SELECT DISTINCT tahun_prediksi FROM hasil_uji_simulasi ORDER BY tahun_prediksi DESC")
@@ -1084,7 +1080,7 @@ def api_retraining_latest_pred():
                 r['tgl_model'] = r['tgl_model'].strftime('%d %b %Y %H:%M')
         cur.close(); conn.close()
         # Hitung tahun prediksi dari indikator historis
-        conn2 = get_db(); cur2 = conn2.cursor(dictionary=True)
+        conn2 = get_db(); cur2 = conn2.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur2.execute("SELECT MAX(tahun) AS max_thn FROM indikator_historis")
         r = cur2.fetchone()
         tahun_pred = (int(str(r['max_thn'])[:4]) + 1) if r and r['max_thn'] else None
@@ -1360,7 +1356,7 @@ def _run_retraining():
                    ih.pengeluaran, ih.ipm_aktual
             FROM indikator_historis ih
             JOIN wilayah w ON ih.id_wilayah = w.id_wilayah
-            WHERE w.is_deleted = 0 AND ih.ipm_aktual IS NOT NULL
+            WHERE w.is_deleted = FALSE AND ih.ipm_aktual IS NOT NULL
             ORDER BY w.nama_wilayah, ih.tahun
         """)
         rows = cur.fetchall()
@@ -1620,7 +1616,7 @@ def _generate_predictions_all(model, scaler, scaler_y, le,
                ih.pengeluaran, ih.ipm_aktual
         FROM indikator_historis ih
         JOIN wilayah w ON ih.id_wilayah = w.id_wilayah
-        WHERE w.is_deleted = 0 AND ih.ipm_aktual IS NOT NULL
+        WHERE w.is_deleted = FALSE AND ih.ipm_aktual IS NOT NULL
         ORDER BY w.nama_wilayah, ih.tahun
     """)
     rows = cur.fetchall()
@@ -1729,9 +1725,9 @@ def api_tambah_parameter():
         conn = get_db(); cur = conn.cursor()
         cur.execute("""
             INSERT INTO parameter_klasifikasi (ambang_bawah, ambang_atas, kategori)
-            VALUES (%s, %s, %s)
+            VALUES (%s, %s, %s) RETURNING id_parameter
         """, (bb, ba, kat))
-        new_id = cur.lastrowid
+        new_id = cur.fetchone()[0]
         conn.commit(); cur.close(); conn.close()
         return jsonify({'ok': True, 'id_parameter': new_id})
     except Exception as e:
@@ -1853,7 +1849,7 @@ def api_stats():
 def api_wilayah_list():
     try:
         conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = 0 ORDER BY nama_wilayah")
+        cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = FALSE ORDER BY nama_wilayah")
         rows = cur.fetchall(); cur.close(); conn.close()
         return jsonify({'ok': True, 'data': rows})
     except Exception as e:
@@ -1899,7 +1895,7 @@ def api_wilayah_aktif_latest():
                     SELECT MAX(tahun) FROM indikator_historis
                     WHERE id_wilayah = w.id_wilayah
                 )
-            WHERE w.is_deleted = 0
+            WHERE w.is_deleted = FALSE
             ORDER BY w.nama_wilayah
         """)
         rows = cur.fetchall(); cur.close(); conn.close()
@@ -1924,7 +1920,7 @@ def publik_home():
 
         # Daftar tahun tersedia — kolom year(4) dikembalikan sebagai date object oleh mysql-connector
         cur.execute("SELECT DISTINCT tahun FROM indikator_historis ORDER BY tahun DESC")
-        tahun_list = [int(str(r['tahun'])[:4]) for r in cur.fetchall()]
+        tahun_list = [int(r['tahun']) for r in cur.fetchall()]
 
         filter_tahun = request.args.get('tahun', tahun_list[0] if tahun_list else None, type=int)
         search       = request.args.get('search', '').strip()
@@ -1932,10 +1928,10 @@ def publik_home():
         per_page     = request.args.get('per_page', 10, type=int)
         per_page     = per_page if per_page in (10, 25, 50) else 10
 
-        where = ['w.is_deleted = 0']
+        where = ['w.is_deleted = FALSE']
         params = []
         if filter_tahun:
-            where.append('YEAR(ih.tahun) = %s'); params.append(filter_tahun)
+            where.append('ih.tahun = %s'); params.append(filter_tahun)
         if search:
             where.append('w.nama_wilayah LIKE %s'); params.append(f'%{search}%')
         where_sql = ' AND '.join(where)
@@ -2047,7 +2043,7 @@ def publik_history():
         page            = max(1, request.args.get('page', 1, type=int))
         per_page        = 10
 
-        where = ['w.is_deleted = 0']
+        where = ['w.is_deleted = FALSE']
         params_q = []
         if filter_wilayah:
             where.append('hus.id_wilayah = %s'); params_q.append(filter_wilayah)
@@ -2153,7 +2149,7 @@ def api_publik_simulasi():
             SELECT w.nama_wilayah, ih.ahh, ih.hls, ih.rls, ih.pengeluaran, ih.ipm_aktual
             FROM indikator_historis ih
             JOIN wilayah w ON ih.id_wilayah = w.id_wilayah
-            WHERE w.is_deleted = 0 AND ih.ipm_aktual IS NOT NULL
+            WHERE w.is_deleted = FALSE AND ih.ipm_aktual IS NOT NULL
             ORDER BY w.nama_wilayah, ih.tahun
         """)
         all_rows = cur.fetchall()
@@ -2218,19 +2214,19 @@ def api_publik_simulasi():
             cur.execute("""
                 INSERT INTO hasil_uji_simulasi
                     (id_model, id_wilayah, data_sequence, tahun_prediksi, nilai_prediksi, kategori_ipm, tgl_simulasi)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id_prediksi
             """, (id_model_terbaru, id_wilayah, data_seq_json, tahun_pred, round(y_pred, 4), kategori, now))
         else:
             cur.execute("""
                 INSERT INTO hasil_uji_simulasi
                     (id_wilayah, data_sequence, tahun_prediksi, nilai_prediksi, kategori_ipm, tgl_simulasi)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id_prediksi
             """, (id_wilayah, data_seq_json, tahun_pred, round(y_pred, 4), kategori, now))
-        new_id = cur.lastrowid
+        new_id = cur.fetchone()[0]
         conn.commit(); cur.close(); conn.close()
 
         # Historis untuk chart tren
-        conn2 = get_db(); cur2 = conn2.cursor(dictionary=True)
+        conn2 = get_db(); cur2 = conn2.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur2.execute("""
             SELECT tahun, ipm_aktual FROM indikator_historis
             WHERE id_wilayah = %s ORDER BY tahun ASC
