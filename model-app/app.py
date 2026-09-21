@@ -171,10 +171,8 @@ with gr.Blocks(title="IPM Jatim AI API") as demo:
     out = gr.Textbox(label="Hasil Prediksi IPM")
     btn.click(gradio_predict, inputs=[kab_in, ahh_in, hls_in, rls_in, pen_in, ipm_in], outputs=out)
 
-# 6. REST API FastAPI & Mount Gradio
-app = FastAPI(title="IPM Jatim BiGRU Model API")
-
-@app.get("/api/health")
+# 6. REST API Endpoints via demo.app
+@demo.app.get("/api/health")
 def health():
     return {
         "status": "online",
@@ -184,7 +182,8 @@ def health():
         "window_size": WINDOW_SIZE
     }
 
-@app.post("/predict")
+@demo.app.post("/api/predict")
+@demo.app.post("/predict")
 async def predict_api(request: Request):
     try:
         data = await request.json()
@@ -196,12 +195,9 @@ async def predict_api(request: Request):
     except Exception as e:
         return JSONResponse(status_code=500, content={"ok": False, "error": str(e)})
 
-@app.post("/retrain")
+@demo.app.post("/retrain")
 def retrain_api():
     return {"ok": True, "message": "Retraining request received by Hugging Face AI."}
 
-app = gr.mount_gradio_app(app, demo, path="/")
-
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    demo.launch(server_name="0.0.0.0", server_port=7860)
