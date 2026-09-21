@@ -12,10 +12,9 @@ import psycopg2
 from werkzeug.security import generate_password_hash
 
 # Ganti dengan URL Supabase Anda jika belum di-set di environment
-SUPABASE_URL = os.environ.get(
-    'SUPABASE_URL',
-    input("Masukkan connection string Supabase (misal: postgresql://postgres:...): ").strip()
-)
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+if not SUPABASE_URL:
+    SUPABASE_URL = input("Masukkan connection string Supabase (misal: postgresql://postgres:...): ").strip()
 
 CSV_FILE = os.path.join(os.path.dirname(__file__), 'IPM Kabupaten_Kota_Prov_Jawa_Timur.csv')
 

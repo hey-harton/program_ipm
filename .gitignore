@@ -224,7 +224,8 @@ __marimo__/
 model_metadata.json
 create_admin.py
 *.sql
-!setup_database.sql
+!db-app/*.sql
+upgrade/
 
 # Abaikan folder setting VS Code
 .vscode/
