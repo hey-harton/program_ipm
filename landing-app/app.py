@@ -1690,7 +1690,7 @@ def publik_prediksi():
         tahun_prediksi = (int(str(row['max_tahun'])[:4]) + 1) if row and row['max_tahun'] else 2025
 
         # Daftar wilayah aktif untuk dropdown simulasi
-        cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted=0 ORDER BY nama_wilayah")
+        cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = FALSE ORDER BY nama_wilayah")
         wilayah_list = cur.fetchall()
 
         tgl_model = prediksi_list[0]['tgl_latih'] if prediksi_list else None
@@ -1752,7 +1752,7 @@ def publik_history():
         """, params_q + [per_page, offset])
         riwayat = cur.fetchall()
 
-        cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted=0 ORDER BY nama_wilayah")
+        cur.execute("SELECT id_wilayah, nama_wilayah FROM wilayah WHERE is_deleted = FALSE ORDER BY nama_wilayah")
         wilayah_list = cur.fetchall()
         cur.execute("SELECT DISTINCT kategori_ipm FROM hasil_uji_simulasi WHERE kategori_ipm IS NOT NULL")
         kategori_list = [r['kategori_ipm'] for r in cur.fetchall()]
@@ -1790,7 +1790,8 @@ def api_publik_indikator(id_wilayah):
             WHERE id_wilayah = %s
             ORDER BY tahun ASC
         """, (id_wilayah,))
-        rows = cur.fetchall(); cur.close(); conn.close()
+        rows = [dict(r) for r in cur.fetchall()]
+        cur.close(); conn.close()
         return jsonify({'ok': True, 'data': rows})
     except Exception as e:
         return jsonify({'ok': False, 'msg': str(e)}), 500
@@ -1812,14 +1813,7 @@ def api_publik_simulasi():
         if not id_wilayah or len(sequence) != 3 or not tahun_pred:
             return jsonify({'ok': False, 'msg': 'Data tidak lengkap. Diperlukan 3 tahun data.'}), 400
 
-        import numpy as np
-        from sklearn.preprocessing import MinMaxScaler, LabelEncoder
-        from tensorflow.keras.models import load_model as keras_load
-
-        if not os.path.exists(MODEL_PATH):
-            return jsonify({'ok': False, 'msg': 'Model belum tersedia. Lakukan retraining terlebih dahulu.'}), 503
-
-        # Load model & scaler dari DB historis (fit ulang scaler agar konsisten)
+        # Hubungkan ke database Supabase
         conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         cur.execute("SELECT nama_wilayah FROM wilayah WHERE id_wilayah = %s", (id_wilayah,))
@@ -1896,7 +1890,8 @@ def api_publik_simulasi():
             SELECT tahun, ipm_aktual FROM indikator_historis
             WHERE id_wilayah = %s ORDER BY tahun ASC
         """, (id_wilayah,))
-        historis_chart = cur2.fetchall(); cur2.close(); conn2.close()
+        historis_chart = [dict(r) for r in cur2.fetchall()]
+        cur2.close(); conn2.close()
 
         return jsonify({
             'ok':           True,
