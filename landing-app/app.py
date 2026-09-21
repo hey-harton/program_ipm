@@ -30,7 +30,14 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ipm-jatim-secret-key-2025')
 
 # ─── Database Config ───────────────────────────────────────────────────────────
-DB_URI = os.environ.get('SUPABASE_URL', 'postgresql://postgres:password@localhost:5432/postgres')
+DB_URI = (
+    os.environ.get('POSTGRES_URL') or
+    os.environ.get('POSTGRES_URL_NON_POOLING') or
+    os.environ.get('SUPABASE_URL') or
+    os.environ.get('DATABASE_URL') or
+    os.environ.get('STORAGE_URL') or
+    'postgresql://postgres:password@localhost:5432/postgres'
+)
 
 # ─── Hugging Face Config ────────────────────────────────────────────────────────
 HF_API_URL = os.environ.get('HF_API_URL', 'https://your-space.hf.space')
