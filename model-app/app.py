@@ -1,7 +1,13 @@
+import spaces
+
+@spaces.GPU(duration=10)
+def dummy_gpu():
+    """Satisfies Hugging Face ZeroGPU startup scanner."""
+    return None
+
 import gradio as gr
-from fastapi import FastAPI, Request
+from fastapi import Request
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 import pandas as pd
 import joblib
@@ -9,31 +15,7 @@ import json
 import tensorflow as tf
 import os
 
-# ZeroGPU integration
-try:
-    import spaces
-except ImportError:
-    class spaces:
-        @staticmethod
-        def GPU(func=None, duration=None):
-            if func is not None:
-                return func
-            def decorator(f):
-                return f
-            return decorator
-
-# 1. Buat FastAPI app
-fastapi_app = FastAPI(title="IPM Jatim BiGRU AI Service")
-
-fastapi_app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 2. Lokasi Artefak Model
+# 1. Lokasi Artefak Model
 model_candidates = ["gru_ipm_model.keras", "best_gru_model.keras"]
 model_path = next((m for m in model_candidates if os.path.exists(m)), model_candidates[0])
 scaler_path = "scaler.pkl"
@@ -71,7 +53,7 @@ def load_artifacts():
 
 load_artifacts()
 
-# 3. Core Inference Function with ZeroGPU decorator
+# 2. Fungsi Prediksi Inti
 @spaces.GPU
 def run_prediction_core(kabupaten: str, data_3_tahun: list):
     if not model or not scaler or not le:
@@ -99,35 +81,7 @@ def run_prediction_core(kabupaten: str, data_3_tahun: list):
 
     return round(float(y_asli), 2)
 
-# 4. REST API Endpoints untuk Vercel
-@fastapi_app.get("/api/health")
-@fastapi_app.get("/")
-def health():
-    return {
-        "status": "online",
-        "service": "IPM Jatim BiGRU Model API",
-        "model_loaded": model is not None,
-        "features": FEATURES,
-        "window_size": WINDOW_SIZE
-    }
-
-@fastapi_app.post("/predict")
-async def predict_api(request: Request):
-    try:
-        data = await request.json()
-        kabupaten = data.get("kabupaten", "Kabupaten Pacitan")
-        data_3_tahun = data.get("data_3_tahun", [])
-
-        y_asli = run_prediction_core(kabupaten, data_3_tahun)
-        return {"ok": True, "prediksi": y_asli}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)})
-
-@fastapi_app.post("/retrain")
-def retrain_api():
-    return {"ok": True, "message": "Retraining request received by Hugging Face AI."}
-
-# 5. Tampilan Interaktif Gradio (UI web gratis)
+# 3. Gradio UI
 @spaces.GPU
 def gradio_predict(kabupaten, ahh, hls, rls, pengeluaran, ipm_terakhir):
     dummy_3_tahun = [
@@ -142,7 +96,7 @@ def gradio_predict(kabupaten, ahh, hls, rls, pengeluaran, ipm_terakhir):
 
 with gr.Blocks(title="IPM Jatim AI API") as demo:
     gr.Markdown("# 🧠 IPM Jawa Timur - BiGRU Deep Learning API")
-    gr.Markdown("Layanan AI ini aktif di Hugging Face Spaces (ZeroGPU Free) melayani inferensi peramalan IPM Jawa Timur.")
+    gr.Markdown("Layanan AI ini aktif di Hugging Face Spaces (ZeroGPU) melayani inferensi peramalan IPM Jawa Timur.")
     with gr.Row():
         kab_in = gr.Textbox(label="Kabupaten / Kota", value="Kota Surabaya")
         ahh_in = gr.Number(label="AHH", value=74.5)
@@ -154,5 +108,32 @@ with gr.Blocks(title="IPM Jatim AI API") as demo:
     out = gr.Textbox(label="Hasil Prediksi IPM")
     btn.click(gradio_predict, inputs=[kab_in, ahh_in, hls_in, rls_in, pen_in, ipm_in], outputs=out)
 
-# Mount Gradio ke FastAPI
-app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+# 4. Attach FastAPI REST routes ke Gradio app
+@demo.app.get("/api/health")
+def health():
+    return {
+        "status": "online",
+        "service": "IPM Jatim BiGRU Model API",
+        "model_loaded": model is not None,
+        "features": FEATURES,
+        "window_size": WINDOW_SIZE
+    }
+
+@demo.app.post("/predict")
+async def predict_api(request: Request):
+    try:
+        data = await request.json()
+        kabupaten = data.get("kabupaten", "Kabupaten Pacitan")
+        data_3_tahun = data.get("data_3_tahun", [])
+
+        y_asli = run_prediction_core(kabupaten, data_3_tahun)
+        return {"ok": True, "prediksi": y_asli}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)})
+
+@demo.app.post("/retrain")
+def retrain_api():
+    return {"ok": True, "message": "Retraining request received by Hugging Face AI."}
+
+if __name__ == "__main__":
+    demo.launch(server_name="0.0.0.0", server_port=7860)
