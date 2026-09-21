@@ -1086,13 +1086,16 @@ def api_retraining_latest_pred():
             ORDER BY hp.ipm_prediksi DESC
         """)
         rows = cur.fetchall()
+        dict_rows = []
         # Re-apply kategori dari params terkini
         for r in rows:
-            if r.get('ipm_prediksi'):
-                r['kategori'] = get_kategori_ipm(float(r['ipm_prediksi']), params)
+            row_dict = dict(r)
+            if row_dict.get('ipm_prediksi'):
+                row_dict['kategori'] = get_kategori_ipm(float(row_dict['ipm_prediksi']), params)
             # Convert datetime to string for JSON
-            if r.get('tgl_model') and hasattr(r['tgl_model'], 'strftime'):
-                r['tgl_model'] = r['tgl_model'].strftime('%d %b %Y %H:%M')
+            if row_dict.get('tgl_model') and hasattr(row_dict['tgl_model'], 'strftime'):
+                row_dict['tgl_model'] = row_dict['tgl_model'].strftime('%d %b %Y %H:%M')
+            dict_rows.append(row_dict)
         cur.close(); conn.close()
         # Hitung tahun prediksi dari indikator historis
         conn2 = get_db(); cur2 = conn2.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1100,7 +1103,7 @@ def api_retraining_latest_pred():
         r = cur2.fetchone()
         tahun_pred = (int(str(r['max_thn'])[:4]) + 1) if r and r['max_thn'] else None
         cur2.close(); conn2.close()
-        return jsonify({'ok': True, 'data': rows, 'tahun_prediksi': tahun_pred})
+        return jsonify({'ok': True, 'data': dict_rows, 'tahun_prediksi': tahun_pred})
     except Exception as e:
         return jsonify({'ok': False, 'msg': str(e)}), 500
 
@@ -1131,31 +1134,34 @@ def api_cetak_pdf():
             ORDER BY hp.ipm_prediksi DESC
         """)
         rows = cur.fetchall()
+        dict_rows = []
         for r in rows:
-            if r.get('ipm_prediksi'):
-                r['kategori'] = get_kategori_ipm(float(r['ipm_prediksi']), params)
-            if r.get('tgl_model') and hasattr(r['tgl_model'], 'strftime'):
-                r['tgl_model'] = r['tgl_model'].strftime('%d %B %Y %H:%M')
+            row_dict = dict(r)
+            if row_dict.get('ipm_prediksi'):
+                row_dict['kategori'] = get_kategori_ipm(float(row_dict['ipm_prediksi']), params)
+            if row_dict.get('tgl_model') and hasattr(row_dict['tgl_model'], 'strftime'):
+                row_dict['tgl_model'] = row_dict['tgl_model'].strftime('%d %B %Y %H:%M')
+            dict_rows.append(row_dict)
 
         # Ringkasan distribusi kategori
         distribusi = {}
-        for r in rows:
+        for r in dict_rows:
             kat = r.get('kategori', '—')
             distribusi[kat] = distribusi.get(kat, 0) + 1
 
         # Info model
         model_info = {}
-        if rows:
+        if dict_rows:
             model_info = {
-                'id_model': rows[0]['id_model'],
-                'tgl_latih': rows[0]['tgl_model'],
-                'jumlah_wilayah': len(rows),
+                'id_model': dict_rows[0]['id_model'],
+                'tgl_latih': dict_rows[0]['tgl_model'],
+                'jumlah_wilayah': len(dict_rows),
             }
 
         cur.close(); conn.close()
         return jsonify({
             'ok': True,
-            'data': rows,
+            'data': dict_rows,
             'distribusi': distribusi,
             'model_info': model_info,
         })
