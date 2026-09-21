@@ -30,9 +30,24 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'ipm-jatim-secret-key-2025')
 
 # ─── Database Config ───────────────────────────────────────────────────────────
+import urllib.parse
+
+def clean_db_uri(raw_uri):
+    if not raw_uri:
+        return raw_uri
+    parsed = urllib.parse.urlparse(raw_uri)
+    if not parsed.query:
+        return raw_uri
+    # Hanya izinkan parameter standar PostgreSQL libpq
+    valid_params = {'sslmode', 'connect_timeout', 'application_name', 'options', 'keepalives'}
+    queries = urllib.parse.parse_qsl(parsed.query)
+    filtered = [(k, v) for k, v in queries if k.lower() in valid_params]
+    new_query = urllib.parse.urlencode(filtered)
+    return urllib.parse.urlunparse(parsed._replace(query=new_query))
+
 DB_URI = (
-    os.environ.get('POSTGRES_URL') or
     os.environ.get('POSTGRES_URL_NON_POOLING') or
+    os.environ.get('POSTGRES_URL') or
     os.environ.get('SUPABASE_URL') or
     os.environ.get('DATABASE_URL') or
     os.environ.get('STORAGE_URL') or
@@ -43,7 +58,7 @@ DB_URI = (
 HF_API_URL = os.environ.get('HF_API_URL', 'https://your-space.hf.space')
 
 def get_db():
-    return psycopg2.connect(DB_URI)
+    return psycopg2.connect(clean_db_uri(DB_URI))
 
 # ─── Global retraining state ───────────────────────────────────────────────────
 _retrain_state = {
